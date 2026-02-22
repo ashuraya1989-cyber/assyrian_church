@@ -6,10 +6,16 @@ export async function updateSession(request: NextRequest) {
         request,
     })
 
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    // If env vars are missing, we can't check session, but we shouldn't crash the whole site
+    if (!url || !key) {
+        return supabaseResponse
+    }
+
+    try {
+        const supabase = createServerClient(url, key, {
             cookies: {
                 getAll() {
                     return request.cookies.getAll()
@@ -24,39 +30,25 @@ export async function updateSession(request: NextRequest) {
                     )
                 },
             },
+        })
+
+        const {
+            data: { user },
+        } = await supabase.auth.getUser()
+
+        if (
+            !user &&
+            !request.nextUrl.pathname.startsWith('/login') &&
+            !request.nextUrl.pathname.startsWith('/auth')
+        ) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/login'
+            return NextResponse.redirect(url)
         }
-    )
-
-    // IMPORTANT: Avoid writing any logic between createServerClient and
-    // getUser(). A simple mistake can make it very hard to debug issues with read-only
-    // cookies.
-
-    const {
-        data: { user },
-    } = await supabase.auth.getUser()
-
-    if (
-        !user &&
-        !request.nextUrl.pathname.startsWith('/login') &&
-        !request.nextUrl.pathname.startsWith('/auth')
-    ) {
-        // no user, potentially respond by redirecting the user to the login page
-        const url = request.nextUrl.clone()
-        url.pathname = '/login'
-        return NextResponse.redirect(url)
+    } catch (e) {
+        // If something fails in auth, return the basic response instead of crashing with 500
+        console.error('Middleware auth error:', e)
     }
-
-    // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
-    // creating a new response object with NextResponse.next() make sure to:
-    // 1. Pass the request in it, like so:
-    //    const myNewResponse = NextResponse.next({ request })
-    // 2. Copy over the cookies, like so:
-    //    myNewResponse.cookies.setAll(supabaseResponse.cookies.getAll())
-    // 3. Change the myNewResponse object to fit your needs, but avoid changing
-    //    the cookies!
-    // 4. Finally: return myNewResponse
-    // If this is not done, you may be causing the browser and server to go out
-    // of sync and terminate the user's session premuturely!
 
     return supabaseResponse
 }
