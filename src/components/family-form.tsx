@@ -40,9 +40,9 @@ export function FamilyForm({ onClose, onSuccess }: FamilyFormProps) {
     }
 
     const removeChild = (index: number) => {
-        const newChildren = children.filter((_, i) => i !== index)
+        const newChildren = children.filter((_: any, i: number) => i !== index)
         // Re-order
-        const reordered = newChildren.map((c, i) => ({ ...c, ordning: i + 1 }))
+        const reordered = newChildren.map((c: any, i: number) => ({ ...c, ordning: i + 1 }))
         setChildren(reordered)
     }
 

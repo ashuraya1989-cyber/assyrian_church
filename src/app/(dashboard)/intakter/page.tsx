@@ -74,7 +74,7 @@ export default function IntakterPage() {
                                 onChange={(e) => setSelectedMonth(e.target.value)}
                             >
                                 <option value="Alla">Alla månader</option>
-                                {months.map(m => <option key={m} value={m}>{m}</option>)}
+                                {months.map((m: string) => <option key={m} value={m}>{m}</option>)}
                             </select>
                         </CardHeader>
                         <CardContent className="p-0">
@@ -96,7 +96,7 @@ export default function IntakterPage() {
                                                 </tr>
                                             ))
                                         ) : items.length > 0 ? (
-                                            items.map((item) => (
+                                            items.map((item: any) => (
                                                 <tr key={item.id} className="hover:bg-accent/50 transition-colors">
                                                     <td className="px-6 py-4">
                                                         <span className="font-medium">{item.datum}</span>

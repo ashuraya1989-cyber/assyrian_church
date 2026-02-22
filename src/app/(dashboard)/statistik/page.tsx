@@ -18,9 +18,9 @@ export default function StatistikPage() {
             const { data: income } = await supabase.from('intakter').select('manad, total')
             const { data: expenses } = await supabase.from('utgifter').select('manad, total')
 
-            const combined = months.map(m => {
-                const inc = income?.filter(i => i.manad === m).reduce((sum, i) => sum + (i.total || 0), 0) || 0
-                const exp = expenses?.filter(e => e.manad === m).reduce((sum, e) => sum + (e.total || 0), 0) || 0
+            const combined = months.map((m: string) => {
+                const inc = income?.filter((i: any) => i.manad === m).reduce((sum: number, i: any) => sum + (i.total || 0), 0) || 0
+                const exp = expenses?.filter((e: any) => e.manad === m).reduce((sum: number, e: any) => sum + (e.total || 0), 0) || 0
                 return { month: m, income: inc, expense: exp }
             })
 
@@ -30,7 +30,7 @@ export default function StatistikPage() {
         fetchData()
     }, [])
 
-    const maxVal = Math.max(...data.map(d => Math.max(d.income, d.expense)), 1000)
+    const maxVal = Math.max(...data.map((d: any) => Math.max(d.income, d.expense)), 1000)
 
     return (
         <div className="space-y-8">
@@ -47,7 +47,7 @@ export default function StatistikPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="h-80 w-full flex items-end gap-2 md:gap-4 pt-10">
-                        {data.map((d, i) => (
+                        {data.map((d: any, i: number) => (
                             <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
                                 <div className="flex gap-1 w-full justify-center h-full items-end">
                                     {/* Income bar */}

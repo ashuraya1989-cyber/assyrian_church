@@ -24,8 +24,8 @@ export default function Dashboard() {
             const { data: expenses } = await supabase.from('utgifter').select('total')
             const { count: families } = await supabase.from('familjer').select('*', { count: 'exact', head: true })
 
-            const totalInc = income?.reduce((sum, i) => sum + (i.total || 0), 0) || 0
-            const totalExp = expenses?.reduce((sum, e) => sum + (e.total || 0), 0) || 0
+            const totalInc = income?.reduce((sum: number, i: any) => sum + (i.total || 0), 0) || 0
+            const totalExp = expenses?.reduce((sum: number, e: any) => sum + (e.total || 0), 0) || 0
 
             setStats({
                 totalIncome: totalInc,
