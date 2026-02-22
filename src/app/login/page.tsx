@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { LogIn } from "lucide-react"
 
 export default function LoginPage() {
-    const supabase = createClient()
+    // Lazy initialize to avoid build-time issues
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [loading, setLoading] = useState(false)
@@ -20,6 +20,13 @@ export default function LoginPage() {
         e.preventDefault()
         setLoading(true)
         setError(null)
+
+        const supabase = createClient()
+        if (!supabase.auth) {
+            setError("Inställningar för Supabase saknas. Kontrollera dina miljövariabler.")
+            setLoading(false)
+            return
+        }
 
         try {
             const { error } = await supabase.auth.signInWithPassword({
