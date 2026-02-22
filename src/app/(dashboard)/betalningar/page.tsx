@@ -69,7 +69,7 @@ export default function BetalningarPage() {
             console.error('Error fetching payments:', error)
         } else {
             // Process data to get the latest payment and calculate total fees
-            const processed = data?.map(f => {
+            const processed = data?.map((f: any) => {
                 const latestPayment = f.betalningar?.sort((a: any, b: any) =>
                     new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
                 )[0]
