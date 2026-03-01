@@ -71,26 +71,37 @@ export default function RegisterPage() {
 
     const fetchFamilyDetails = async (id: string) => {
         setActionLoading(true)
-        const { data: familyObj, error: fError } = await supabase
-            .from('familjer')
-            .select('*')
-            .eq('id', id)
-            .single()
+        try {
+            const { data: familyObj, error: fError } = await supabase
+                .from('familjer')
+                .select('*')
+                .eq('id', id)
+                .single()
 
-        const { data: childrenObj, error: cError } = await supabase
-            .from('barn')
-            .select('*')
-            .eq('familj_id', id)
-            .order('ordning', { ascending: true })
+            const { data: childrenObj, error: cError } = await supabase
+                .from('barn')
+                .select('*')
+                .eq('familj_id', id)
+                .order('ordning', { ascending: true })
 
-        setActionLoading(false)
+            setActionLoading(false)
 
-        if (fError) {
-            console.error('Error fetching family details:', fError)
+            if (fError) {
+                console.error('Error fetching family details:', fError)
+                alert(`Kunde inte hämta detaljer (databasfel): ${fError.message || JSON.stringify(fError)}`)
+                return null
+            }
+            if (cError) {
+                console.error('Error fetching children:', cError)
+            }
+
+            return { ...familyObj, children: childrenObj || [] }
+        } catch (e: any) {
+            setActionLoading(false)
+            console.error('Fetch exception:', e)
+            alert(`Ett oväntat fel uppstod när familjen skulle hämtas: ${e?.message || 'Okänt fel'}`)
             return null
         }
-
-        return { ...familyObj, children: childrenObj || [] }
     }
 
     const handleView = async (id: string) => {
@@ -106,6 +117,8 @@ export default function RegisterPage() {
         if (details) {
             setSelectedFamily(details)
             setEditMode(true)
+        } else {
+            alert("Misslyckades att ladda familjens data för redigering. Kolla din internetuppkoppling och behörighet.")
         }
     }
 
@@ -220,7 +233,7 @@ export default function RegisterPage() {
                                             <td className="px-6 py-4 text-muted-foreground">{family.mobil_nummer || "-"}</td>
                                             <td className="px-6 py-4">{family.ort || "-"}</td>
                                             <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex justify-end gap-2">
                                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(family.id)}>
                                                         <Edit2 className="h-3.5 w-3.5" />
                                                     </Button>
