@@ -6,10 +6,10 @@ CREATE TABLE IF NOT EXISTS familjer (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   familje_namn TEXT NOT NULL,
   make_namn TEXT NOT NULL,
-  make_fodelse_datum DATE,
+  make_personnummer TEXT,
   make_manads_avgift INTEGER DEFAULT 200,
   hustru_namn TEXT,
-  hustru_fodelse_datum DATE,
+  hustru_personnummer TEXT,
   hustru_manads_avgift INTEGER DEFAULT 200,
   mobil_nummer TEXT,
   mail TEXT,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS barn (
   familj_id UUID REFERENCES familjer(id) ON DELETE CASCADE,
   ordning INTEGER NOT NULL CHECK (ordning BETWEEN 1 AND 6),
   namn TEXT NOT NULL,
-  fodelse_datum DATE,
+  personnummer TEXT,
   manads_avgift INTEGER DEFAULT 100,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -92,7 +92,7 @@ CREATE POLICY "Allow authenticated access to intakter" ON intakter FOR ALL TO au
 -- RPC to add family and children atomically
 CREATE OR REPLACE FUNCTION add_family_with_children(
   family_data JSONB,
-  children_data JSONB[]
+  children_data JSONB
 ) RETURNS UUID AS $$
 DECLARE
   new_family_id UUID;
@@ -119,8 +119,8 @@ BEGIN
   ) RETURNING id INTO new_family_id;
 
   -- Insert children
-  IF children_data IS NOT NULL THEN
-    FOREACH child_data IN ARRAY children_data
+  IF children_data IS NOT NULL AND jsonb_typeof(children_data) = 'array' THEN
+    FOR child_data IN SELECT * FROM jsonb_array_elements(children_data)
     LOOP
       IF child_data->>'namn' IS NOT NULL AND child_data->>'namn' != '' THEN
         INSERT INTO barn (familj_id, ordning, namn, fodelse_datum, manads_avgift)

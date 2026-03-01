@@ -10,33 +10,35 @@ import { X, Plus, Trash2 } from "lucide-react"
 interface FamilyFormProps {
     onClose: () => void
     onSuccess: () => void
+    initialData?: any
 }
 
-export function FamilyForm({ onClose, onSuccess }: FamilyFormProps) {
+export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps) {
     const supabase = createClient()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     const [familyData, setFamilyData] = useState({
+        id: initialData?.id || undefined,
         familje_namn: "",
         make_namn: "",
-        make_fodelse_datum: "",
+        make_personnummer: "",
         make_manads_avgift: 200,
         hustru_namn: "",
-        hustru_fodelse_datum: "",
+        hustru_personnummer: "",
         hustru_manads_avgift: 200,
         mobil_nummer: "",
         mail: "",
         adress: "",
         ort: "",
-        post_kod: "",
+        post_kod: initialData?.post_kod || "",
     })
 
-    const [children, setChildren] = useState<any[]>([])
+    const [children, setChildren] = useState<any[]>(initialData?.children || [])
 
     const addChild = () => {
         if (children.length >= 6) return
-        setChildren([...children, { ordning: children.length + 1, namn: "", fodelse_datum: "", manads_avgift: 100 }])
+        setChildren([...children, { ordning: children.length + 1, namn: "", personnummer: "", manads_avgift: 100 }])
     }
 
     const removeChild = (index: number) => {
@@ -64,12 +66,22 @@ export function FamilyForm({ onClose, onSuccess }: FamilyFormProps) {
         }
 
         try {
-            const { data, error: rpcError } = await supabase.rpc('add_family_with_children', {
-                family_data: familyData,
-                children_data: children
-            })
-
-            if (rpcError) throw rpcError
+            if (familyData.id) {
+                // Edit Mode
+                const { error: rpcError } = await supabase.rpc('update_family_with_children', {
+                    p_family_id: familyData.id,
+                    family_data: familyData,
+                    children_data: children
+                })
+                if (rpcError) throw rpcError
+            } else {
+                // Create Mode
+                const { error: rpcError } = await supabase.rpc('add_family_with_children', {
+                    family_data: familyData,
+                    children_data: children
+                })
+                if (rpcError) throw rpcError
+            }
 
             onSuccess()
         } catch (err: any) {
@@ -83,7 +95,7 @@ export function FamilyForm({ onClose, onSuccess }: FamilyFormProps) {
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto glass-card shadow-2xl">
                 <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-                    <CardTitle>Lägg till ny familj</CardTitle>
+                    <CardTitle>{initialData ? "Redigera familj" : "Lägg till ny familj"}</CardTitle>
                     <Button variant="ghost" size="icon" onClick={onClose}>
                         <X className="h-5 w-5" />
                     </Button>
@@ -163,11 +175,13 @@ export function FamilyForm({ onClose, onSuccess }: FamilyFormProps) {
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <div className="grid gap-2">
-                                            <label className="text-sm font-medium">Födelsedatum</label>
+                                            <label className="text-sm font-medium">Personnummer (12 siffror)</label>
                                             <Input
-                                                type="date"
-                                                value={familyData.make_fodelse_datum}
-                                                onChange={(e) => setFamilyData({ ...familyData, make_fodelse_datum: e.target.value })}
+                                                type="text"
+                                                maxLength={12}
+                                                placeholder="ÅÅÅÅMMDDNNNN"
+                                                value={familyData.make_personnummer}
+                                                onChange={(e) => setFamilyData({ ...familyData, make_personnummer: e.target.value })}
                                             />
                                         </div>
                                         <div className="grid gap-2">
@@ -191,11 +205,13 @@ export function FamilyForm({ onClose, onSuccess }: FamilyFormProps) {
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <div className="grid gap-2">
-                                            <label className="text-sm font-medium">Födelsedatum</label>
+                                            <label className="text-sm font-medium">Personnummer (12 siffror)</label>
                                             <Input
-                                                type="date"
-                                                value={familyData.hustru_fodelse_datum}
-                                                onChange={(e) => setFamilyData({ ...familyData, hustru_fodelse_datum: e.target.value })}
+                                                type="text"
+                                                maxLength={12}
+                                                placeholder="ÅÅÅÅMMDDNNNN"
+                                                value={familyData.hustru_personnummer}
+                                                onChange={(e) => setFamilyData({ ...familyData, hustru_personnummer: e.target.value })}
                                             />
                                         </div>
                                         <div className="grid gap-2">
@@ -241,11 +257,13 @@ export function FamilyForm({ onClose, onSuccess }: FamilyFormProps) {
                                             </div>
                                             <div className="grid grid-cols-2 gap-2">
                                                 <div className="grid gap-1">
-                                                    <label className="text-xs font-semibold uppercase text-muted-foreground">Födelsedatum</label>
+                                                    <label className="text-xs font-semibold uppercase text-muted-foreground">Personnummer (12 siffror)</label>
                                                     <Input
-                                                        type="date"
-                                                        value={child.fodelse_datum}
-                                                        onChange={(e) => updateChild(index, 'fodelse_datum', e.target.value)}
+                                                        type="text"
+                                                        maxLength={12}
+                                                        placeholder="ÅÅÅÅMMDDNNNN"
+                                                        value={child.personnummer}
+                                                        onChange={(e) => updateChild(index, 'personnummer', e.target.value)}
                                                     />
                                                 </div>
                                                 <div className="grid gap-1">
@@ -271,7 +289,7 @@ export function FamilyForm({ onClose, onSuccess }: FamilyFormProps) {
                     <div className="p-6 border-t flex justify-end gap-3 sticky bottom-0 bg-card/80 backdrop-blur-md">
                         <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>Avbryt</Button>
                         <Button type="submit" variant="premium" disabled={loading}>
-                            {loading ? "Sparar..." : "Spara familj"}
+                            {loading ? "Sparar..." : (initialData ? "Uppdatera familj" : "Spara familj")}
                         </Button>
                     </div>
                 </form>

@@ -5,36 +5,36 @@
 
 -- Shazo family
 WITH f AS (
-  INSERT INTO familjer (familje_namn, make_namn, make_fodelse_datum, make_manads_avgift, hustru_namn, hustru_fodelse_datum, hustru_manads_avgift, mobil_nummer, mail, adress, ort, post_kod)
-  VALUES ('Shazo', 'Paul Shazo', '1990-09-23', 200, 'Jennifer Shazo', '1993-07-14', 200, '704339224', 'paulesho1990@gmail.com', 'Kaverösporten 26', 'Västra Frölunda', '42137')
+  INSERT INTO familjer (familje_namn, make_namn, make_personnummer, make_manads_avgift, hustru_namn, hustru_personnummer, hustru_manads_avgift, mobil_nummer, mail, adress, ort, post_kod)
+  VALUES ('Shazo', 'Paul Shazo', '199009230000', 200, 'Jennifer Shazo', '199307140000', 200, '704339224', 'paulesho1990@gmail.com', 'Kaverösporten 26', 'Västra Frölunda', '42137')
   RETURNING id
 )
-INSERT INTO barn (familj_id, ordning, namn, fodelse_datum, manads_avgift)
-SELECT id, 1, 'Lavina Shazo', '2016-05-17', 100 FROM f
+INSERT INTO barn (familj_id, ordning, namn, personnummer, manads_avgift)
+SELECT id, 1, 'Lavina Shazo', '201605170000', 100 FROM f
 UNION ALL
-SELECT id, 2, 'Leyona Shazo', '2019-11-24', 100 FROM f;
+SELECT id, 2, 'Leyona Shazo', '201911240000', 100 FROM f;
 
 -- Johansson family
 WITH f AS (
-  INSERT INTO familjer (familje_namn, make_namn, make_fodelse_datum, make_manads_avgift, hustru_namn, hustru_fodelse_datum, hustru_manads_avgift, mobil_nummer, ort)
-  VALUES ('Johansson', 'Erik Johannson', '1969-01-01', 200, 'Khwanze Odisho', '1972-01-01', 200, '700000000', 'Västra Frölunda')
+  INSERT INTO familjer (familje_namn, make_namn, make_personnummer, make_manads_avgift, hustru_namn, hustru_personnummer, hustru_manads_avgift, mobil_nummer, ort)
+  VALUES ('Johansson', 'Erik Johannson', '196901010000', 200, 'Khwanze Odisho', '197201010000', 200, '700000000', 'Västra Frölunda')
   RETURNING id
 )
-INSERT INTO barn (familj_id, ordning, namn, fodelse_datum, manads_avgift)
-SELECT id, 1, 'Peter Johansson', '2022-01-01', 100 FROM f
+INSERT INTO barn (familj_id, ordning, namn, personnummer, manads_avgift)
+SELECT id, 1, 'Peter Johansson', '202201010000', 100 FROM f
 UNION ALL
-SELECT id, 2, 'Warde Johansson', '2020-01-01', 100 FROM f;
+SELECT id, 2, 'Warde Johansson', '202001010000', 100 FROM f;
 
 -- Baro family
 WITH f AS (
-  INSERT INTO familjer (familje_namn, make_namn, make_fodelse_datum, make_manads_avgift, hustru_namn, hustru_fodelse_datum, hustru_manads_avgift, mobil_nummer)
-  VALUES ('Baro', 'James Baro', '1973-07-07', 200, 'Margreat Oraha', '1987-05-02', 200, '704873845')
+  INSERT INTO familjer (familje_namn, make_namn, make_personnummer, make_manads_avgift, hustru_namn, hustru_personnummer, hustru_manads_avgift, mobil_nummer)
+  VALUES ('Baro', 'James Baro', '197307070000', 200, 'Margreat Oraha', '198705020000', 200, '704873845')
   RETURNING id
 )
-INSERT INTO barn (familj_id, ordning, namn, fodelse_datum, manads_avgift)
-SELECT id, 1, 'Broniel Baro', '2019-12-23', 100 FROM f
+INSERT INTO barn (familj_id, ordning, namn, personnummer, manads_avgift)
+SELECT id, 1, 'Broniel Baro', '201912230000', 100 FROM f
 UNION ALL
-SELECT id, 2, 'Edlina Baro', '2022-10-21', 100 FROM f;
+SELECT id, 2, 'Edlina Baro', '202210210000', 100 FROM f;
 
 -- Seeding some payments
 INSERT INTO betalningar (familj_id, total_manads_avgift, total_ars_avgift, summan, betalat_till_datum, betalat_via, betalnings_referens)
