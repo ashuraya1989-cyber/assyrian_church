@@ -161,13 +161,6 @@ export default function RegisterPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-2 mb-[-1rem] text-sm text-muted-foreground">
-                <span>Språk: </span>
-                <select className="bg-transparent border border-border rounded px-2 py-1 font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring">
-                    <option value="sv">Svenska</option>
-                    <option value="en">English</option>
-                </select>
-            </div>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Familjeregister</h1>

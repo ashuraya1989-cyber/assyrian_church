@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils"
 import { format, isAfter, isBefore, addDays, parseISO } from "date-fns"
 import { sv } from "date-fns/locale"
+import { PaymentForm } from "@/components/payment-form"
 
 interface PaymentInfo {
     id: string
@@ -38,6 +39,9 @@ export default function BetalningarPage() {
     const [payments, setPayments] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
+
+    const [showForm, setShowForm] = useState(false)
+    const [selectedPayment, setSelectedPayment] = useState<any>(null)
 
     const fetchPayments = async () => {
         setLoading(true)
@@ -133,11 +137,26 @@ export default function BetalningarPage() {
                     <Button variant="outline" size="icon" onClick={fetchPayments} disabled={loading}>
                         <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
                     </Button>
-                    <Button variant="premium">
+                    <Button variant="premium" onClick={() => { setSelectedPayment(null); setShowForm(true); }}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Registrera betalning
                     </Button>
                 </div>
             </div>
+
+            {showForm && (
+                <PaymentForm
+                    initialData={selectedPayment}
+                    onClose={() => {
+                        setShowForm(false)
+                        setSelectedPayment(null)
+                    }}
+                    onSuccess={() => {
+                        setShowForm(false)
+                        setSelectedPayment(null)
+                        fetchPayments()
+                    }}
+                />
+            )}
 
             <Card className="glass-card border-none">
                 <CardHeader className="p-4 md:p-6 pb-0 md:pb-0">
