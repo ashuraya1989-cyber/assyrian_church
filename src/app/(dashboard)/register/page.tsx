@@ -29,6 +29,7 @@ interface Family {
     adress: string
     ort: string
     post_kod: string
+    land: string
     make_personnummer: string
     make_manads_avgift: number
     hustru_personnummer: string
@@ -160,6 +161,13 @@ export default function RegisterPage() {
 
     return (
         <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-[-1rem] text-sm text-muted-foreground">
+                <span>Språk: </span>
+                <select className="bg-transparent border border-border rounded px-2 py-1 font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring">
+                    <option value="sv">Svenska</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Familjeregister</h1>
@@ -312,6 +320,7 @@ export default function RegisterPage() {
                                 <div><span className="font-semibold text-muted-foreground">E-post:</span> {selectedFamily.mail || "-"}</div>
                                 <div><span className="font-semibold text-muted-foreground">Adress:</span> {selectedFamily.adress || "-"}</div>
                                 <div><span className="font-semibold text-muted-foreground">Ort:</span> {selectedFamily.ort || "-"} {selectedFamily.post_kod}</div>
+                                <div><span className="font-semibold text-muted-foreground">Land:</span> {selectedFamily.land || "Sverige"}</div>
                             </div>
 
                             <div className="space-y-4">

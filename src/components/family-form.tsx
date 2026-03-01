@@ -32,6 +32,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
         adress: "",
         ort: "",
         post_kod: initialData?.post_kod || "",
+        land: initialData?.land || "Sverige",
     })
 
     const [children, setChildren] = useState<any[]>(initialData?.children || [])
@@ -159,6 +160,23 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                             onChange={(e) => setFamilyData({ ...familyData, post_kod: e.target.value })}
                                         />
                                     </div>
+                                </div>
+                                <div className="grid gap-2">
+                                    <label className="text-sm font-medium">Land</label>
+                                    <select
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        value={familyData.land}
+                                        onChange={(e) => setFamilyData({ ...familyData, land: e.target.value })}
+                                    >
+                                        <option value="Sverige">Sverige</option>
+                                        <option value="Danmark">Danmark</option>
+                                        <option value="Norge">Norge</option>
+                                        <option value="Finland">Finland</option>
+                                        <option value="Tyskland">Tyskland</option>
+                                        <option value="USA">USA</option>
+                                        <option value="Storbritannien">Storbritannien</option>
+                                        <option value="Annat">Annat</option>
+                                    </select>
                                 </div>
                             </div>
 
