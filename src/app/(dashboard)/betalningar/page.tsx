@@ -214,7 +214,23 @@ export default function BetalningarPage() {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <Button variant="ghost" size="sm">Hantera</Button>
+                                                    {status.label !== "À jour" && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                setSelectedPayment({
+                                                                    familj_id: p.id,
+                                                                    total_manads_avgift: p.monthly_fee,
+                                                                    total_ars_avgift: p.annual_fee,
+                                                                    summan: p.monthly_fee // default to paying monthly sum for prepopulation
+                                                                })
+                                                                setShowForm(true)
+                                                            }}
+                                                        >
+                                                            Hantera
+                                                        </Button>
+                                                    )}
                                                 </td>
                                             </tr>
                                         )
