@@ -16,7 +16,8 @@ import {
 } from "lucide-react"
 import { createClient } from "@/utils/supabase/client"
 import { useLanguage } from "@/components/language-provider"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 
 const navItems = [
     { key: "nav.dashboard", href: "/", icon: LayoutDashboard },
@@ -30,8 +31,9 @@ const navItems = [
 ]
 
 export function Sidebar() {
-    const supabase = createClient()
+    const supabase = useMemo(() => createClient(), [])
     const pathname = usePathname()
+    const router = useRouter()
     const { language, setLanguage, t } = useLanguage()
     const [adminTitle, setAdminTitle] = useState<string>("Medlemsregister")
     const [adminLogoUrl, setAdminLogoUrl] = useState<string | null>(null)
@@ -62,11 +64,11 @@ export function Sidebar() {
 
         fetchSettings()
         fetchUserProfile()
-    }, [supabase])
+    }, [])
 
     const handleLogout = async () => {
         await supabase.auth.signOut()
-        window.location.href = "/login"
+        router.push("/login")
     }
 
     return (
@@ -90,12 +92,14 @@ export function Sidebar() {
                     if (item.permission) {
                         if (userRole === 'user') {
                             if (!userPermissions.includes(item.permission)) return null;
-                            if (item.permission === 'settings' || item.permission === 'users') return null; // Force hide admin links from standard users
+                            if (item.permission === 'settings' || item.permission === 'users') return null;
                         }
                     }
 
                     const Icon = item.icon
-                    const isActive = pathname.startsWith(item.href)
+                    // Exact match for all routes to avoid false positives
+                    const isActive = pathname === item.href
+
                     return (
                         <Link
                             key={item.key}
