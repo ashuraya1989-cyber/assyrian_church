@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Plus, Search, Trash2, Edit, Loader2, ShieldCheck, User as UserIcon } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 import { createUserAction, updateUserRoleAndPermissions, deleteUserAction } from "@/app/actions/users"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -173,12 +173,12 @@ export default function UsersPage() {
                 </div>
 
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                    <DialogTrigger asChild>
+                    <DialogTrigger render={
                         <Button className="premium-gradient text-primary-foreground border-0">
                             <Plus className="mr-2 h-4 w-4" />
                             {t("page.users.add") || "Skapa Användare"}
                         </Button>
-                    </DialogTrigger>
+                    } />
                     <DialogContent className="sm:max-w-[425px]">
                         <DialogHeader>
                             <DialogTitle>Skapa ny användare</DialogTitle>
@@ -198,7 +198,7 @@ export default function UsersPage() {
 
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Roll</label>
-                                <Select value={newRole} onValueChange={(v: 'admin' | 'user') => setNewRole(v)}>
+                                <Select value={newRole} onValueChange={(v: any) => setNewRole(v || 'user')}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Välj roll" />
                                     </SelectTrigger>
