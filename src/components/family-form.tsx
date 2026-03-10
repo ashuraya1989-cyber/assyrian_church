@@ -70,15 +70,47 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
         if (!familyData.adress?.trim()) errors.push('adress')
         if (!familyData.ort?.trim()) errors.push('ort')
         if (!familyData.post_kod?.trim()) errors.push('post_kod')
-        if (!familyData.make_namn?.trim()) errors.push('make_namn')
-        if (!familyData.make_personnummer || familyData.make_personnummer.trim().length !== 12) errors.push('make_personnummer')
-        if (familyData.make_manads_avgift === undefined || familyData.make_manads_avgift === null || isNaN(familyData.make_manads_avgift)) errors.push('make_manads_avgift')
+
+        const hasMakeName = !!familyData.make_namn?.trim();
+        const hasHustruName = !!familyData.hustru_namn?.trim();
+
+        if (hasMakeName) {
+            if (!familyData.make_personnummer || familyData.make_personnummer.trim().length !== 12) errors.push('make_personnummer')
+            if (familyData.make_manads_avgift === undefined || familyData.make_manads_avgift === null || isNaN(familyData.make_manads_avgift)) errors.push('make_manads_avgift')
+        }
+
+        if (hasHustruName) {
+            if (!familyData.hustru_personnummer || familyData.hustru_personnummer.trim().length !== 12) errors.push('hustru_personnummer')
+            if (familyData.hustru_manads_avgift === undefined || familyData.hustru_manads_avgift === null || isNaN(familyData.hustru_manads_avgift)) errors.push('hustru_manads_avgift')
+        }
+
+        if (!hasMakeName && !hasHustruName) {
+            errors.push('make_namn', 'hustru_namn');
+        }
 
         if (errors.length > 0) {
             setValidationErrors(errors)
             setError("Vänligen fyll i alla obligatoriska fält korrekt (markerade i rött). Personnummer måste vara 12 siffror.")
             setLoading(false)
             return
+        }
+
+        // Confirmation dialogs
+        if (!hasMakeName && hasHustruName) {
+            if (!window.confirm("Vill du gå vidare utan att fylla i Make fältet?")) {
+                setLoading(false);
+                return;
+            }
+        } else if (hasMakeName && !hasHustruName) {
+            if (!window.confirm("Vill du gå vidare utan att fylla i Hustru fältet?")) {
+                setLoading(false);
+                return;
+            }
+        } else {
+            if (!window.confirm("Vill du spara familj i familje registret?")) {
+                setLoading(false);
+                return;
+            }
         }
 
         try {
