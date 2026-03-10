@@ -10,10 +10,12 @@ import {
     TrendingUp,
     BarChart3,
     LogOut,
-    LayoutDashboard
+    LayoutDashboard,
+    Settings
 } from "lucide-react"
 import { createClient } from "@/utils/supabase/client"
 import { useLanguage } from "@/components/language-provider"
+import { useEffect, useState } from "react"
 
 const navItems = [
     { key: "nav.dashboard", href: "/", icon: LayoutDashboard },
@@ -22,12 +24,28 @@ const navItems = [
     { key: "nav.expenses", href: "/utgifter", icon: TrendingDown },
     { key: "nav.income", href: "/intakter", icon: TrendingUp },
     { key: "nav.stats", href: "/statistik", icon: BarChart3 },
+    { key: "nav.settings", href: "/installningar", icon: Settings },
 ]
 
 export function Sidebar() {
     const supabase = createClient()
     const pathname = usePathname()
     const { language, setLanguage, t } = useLanguage()
+    const [adminTitle, setAdminTitle] = useState<string>("Medlemsregister")
+    const [adminLogoUrl, setAdminLogoUrl] = useState<string | null>(null)
+    const [adminLogoSize, setAdminLogoSize] = useState<number>(32)
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            const { data } = await supabase.from('app_settings').select('admin_title, admin_logo_url, admin_logo_size').eq('id', 1).single()
+            if (data) {
+                if (data.admin_title) setAdminTitle(data.admin_title)
+                if (data.admin_logo_url) setAdminLogoUrl(data.admin_logo_url)
+                if (data.admin_logo_size) setAdminLogoSize(data.admin_logo_size)
+            }
+        }
+        fetchSettings()
+    }, [supabase])
 
     const handleLogout = async () => {
         await supabase.auth.signOut()
@@ -36,9 +54,17 @@ export function Sidebar() {
 
     return (
         <div className="flex h-full flex-col bg-card border-r shadow-sm">
-            <div className="p-6">
-                <h2 className="text-xl font-bold tracking-tight premium-gradient bg-clip-text text-transparent">
-                    {t('app.title')}
+            <div className="p-6 flex items-center gap-3">
+                {adminLogoUrl && (
+                    <img
+                        src={adminLogoUrl}
+                        alt="Logo"
+                        style={{ height: `${adminLogoSize}px` }}
+                        className="max-w-[120px] object-contain"
+                    />
+                )}
+                <h2 className="text-xl font-bold tracking-tight premium-gradient bg-clip-text text-transparent truncate">
+                    {adminTitle}
                 </h2>
             </div>
             <nav className="flex-1 space-y-1 px-3">

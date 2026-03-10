@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,24 @@ export default function LoginPage() {
     const [password, setPassword] = useState("")
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [loginTitle, setLoginTitle] = useState<string>("Välkommen")
+    const [loginSubtitle, setLoginSubtitle] = useState<string>("Logga in på medlemsregistret")
+    const [loginLogoUrl, setLoginLogoUrl] = useState<string | null>(null)
+    const [loginLogoSize, setLoginLogoSize] = useState<number>(64)
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            const supabase = createClient()
+            const { data } = await supabase.from('app_settings').select('login_title, login_subtitle, login_logo_url, login_logo_size').eq('id', 1).single()
+            if (data) {
+                if (data.login_title) setLoginTitle(data.login_title)
+                if (data.login_subtitle) setLoginSubtitle(data.login_subtitle)
+                if (data.login_logo_url) setLoginLogoUrl(data.login_logo_url)
+                if (data.login_logo_size) setLoginLogoSize(data.login_logo_size)
+            }
+        }
+        fetchSettings()
+    }, [])
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -48,10 +66,20 @@ export default function LoginPage() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-background premium-gradient p-4">
             <Card className="w-full max-w-md glass-card border-none">
-                <CardHeader className="space-y-1 text-center">
-                    <CardTitle className="text-3xl font-bold tracking-tight">Välkommen</CardTitle>
+                <CardHeader className="space-y-1 text-center flex flex-col items-center">
+                    {loginLogoUrl && (
+                        <div className="mb-4">
+                            <img
+                                src={loginLogoUrl}
+                                alt="Logo"
+                                style={{ height: `${loginLogoSize}px` }}
+                                className="max-w-[300px] object-contain"
+                            />
+                        </div>
+                    )}
+                    <CardTitle className="text-3xl font-bold tracking-tight">{loginTitle}</CardTitle>
                     <CardDescription>
-                        Logga in på medlemsregistret
+                        {loginSubtitle}
                     </CardDescription>
                 </CardHeader>
                 <form onSubmit={handleLogin}>
