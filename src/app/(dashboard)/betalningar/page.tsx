@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils"
 import { format, isAfter, isBefore, addDays, parseISO } from "date-fns"
 import { sv } from "date-fns/locale"
 import { PaymentForm } from "@/components/payment-form"
+import { useLanguage } from "@/components/language-provider"
 
 interface PaymentInfo {
     id: string
@@ -36,6 +37,7 @@ interface PaymentInfo {
 
 export default function BetalningarPage() {
     const supabase = createClient()
+    const { t } = useLanguage()
     const [payments, setPayments] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
@@ -106,18 +108,18 @@ export default function BetalningarPage() {
     }, [])
 
     const getStatus = (paidUntil: string | null) => {
-        if (!paidUntil) return { label: "Obetald", color: "text-destructive bg-destructive/10", icon: AlertCircle }
+        if (!paidUntil) return { label: t('status.unpaid'), color: "text-destructive bg-destructive/10", icon: AlertCircle }
 
         const today = new Date()
         const untilDate = parseISO(paidUntil)
         const warningDate = addDays(today, 30)
 
         if (isBefore(untilDate, today)) {
-            return { label: "Förfallen", color: "text-destructive bg-destructive/10", icon: AlertCircle }
+            return { label: t('status.overdue'), color: "text-destructive bg-destructive/10", icon: AlertCircle }
         } else if (isBefore(untilDate, warningDate)) {
-            return { label: "Snart förfaller", color: "text-amber-600 bg-amber-50", icon: Clock }
+            return { label: t('status.soon_overdue'), color: "text-amber-600 bg-amber-50", icon: Clock }
         } else {
-            return { label: "À jour", color: "text-green-600 bg-green-50", icon: CheckCircle2 }
+            return { label: t('status.up_to_date'), color: "text-green-600 bg-green-50", icon: CheckCircle2 }
         }
     }
 
@@ -130,15 +132,15 @@ export default function BetalningarPage() {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Betalningar</h1>
-                    <p className="text-muted-foreground">Följ upp medlemsavgifter och betalningsstatus.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">{t('page.payments.title')}</h1>
+                    <p className="text-muted-foreground">{t('page.payments.desc')}</p>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" size="icon" onClick={fetchPayments} disabled={loading}>
                         <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
                     </Button>
                     <Button variant="premium" onClick={() => { setSelectedPayment(null); setShowForm(true); }}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Registrera betalning
+                        <PlusCircle className="mr-2 h-4 w-4" /> {t('page.payments.register')}
                     </Button>
                 </div>
             </div>
@@ -163,7 +165,7 @@ export default function BetalningarPage() {
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Sök på familjenamn..."
+                            placeholder={t('page.payments.search')}
                             className="pl-10 bg-background/50 border-white/20"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -175,12 +177,12 @@ export default function BetalningarPage() {
                         <table className="w-full text-sm text-left">
                             <thead className="text-xs uppercase bg-muted/50 text-muted-foreground border-y">
                                 <tr>
-                                    <th className="px-6 py-3 font-semibold">Familj</th>
-                                    <th className="px-6 py-3 font-semibold">Månadsavgift</th>
-                                    <th className="px-6 py-3 font-semibold">Årsavgift</th>
-                                    <th className="px-6 py-3 font-semibold">Betalat till</th>
-                                    <th className="px-6 py-3 font-semibold">Status</th>
-                                    <th className="px-6 py-3 font-semibold text-right">Åtgärder</th>
+                                    <th className="px-6 py-3 font-semibold">{t('table.family')}</th>
+                                    <th className="px-6 py-3 font-semibold">{t('table.monthly_fee')}</th>
+                                    <th className="px-6 py-3 font-semibold">{t('table.yearly_fee')}</th>
+                                    <th className="px-6 py-3 font-semibold">{t('table.paid_until')}</th>
+                                    <th className="px-6 py-3 font-semibold">{t('table.status')}</th>
+                                    <th className="px-6 py-3 font-semibold text-right">{t('table.actions')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
@@ -214,7 +216,7 @@ export default function BetalningarPage() {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    {status.label !== "À jour" && (
+                                                    {status.label !== t('status.up_to_date') && (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
@@ -228,7 +230,7 @@ export default function BetalningarPage() {
                                                                 setShowForm(true)
                                                             }}
                                                         >
-                                                            Hantera
+                                                            {t('action.manage')}
                                                         </Button>
                                                     )}
                                                 </td>
@@ -238,7 +240,7 @@ export default function BetalningarPage() {
                                 ) : (
                                     <tr>
                                         <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                                            Inga poster hittades.
+                                            {t('table.empty_records')}
                                         </td>
                                     </tr>
                                 )}

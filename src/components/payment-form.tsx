@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { X } from "lucide-react"
+import { useLanguage } from "@/components/language-provider"
 
 interface PaymentFormProps {
     onClose: () => void
@@ -16,6 +17,7 @@ interface PaymentFormProps {
 
 export function PaymentForm({ onClose, onSuccess, initialData, selectedFamilyId }: PaymentFormProps) {
     const supabase = createClient()
+    const { t } = useLanguage()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [families, setFamilies] = useState<any[]>([])
@@ -74,7 +76,7 @@ export function PaymentForm({ onClose, onSuccess, initialData, selectedFamilyId 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!formData.familj_id) {
-            setError("Vänligen välj en familj.")
+            setError(t('form.payment.error_select_family'))
             return
         }
 
@@ -115,7 +117,7 @@ export function PaymentForm({ onClose, onSuccess, initialData, selectedFamilyId 
             }
             onSuccess()
         } catch (err: any) {
-            setError(err.message || "Ett fel uppstod.")
+            setError(err.message || t('form.payment.error_save'))
         } finally {
             setLoading(false)
         }
@@ -125,7 +127,7 @@ export function PaymentForm({ onClose, onSuccess, initialData, selectedFamilyId 
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <Card className="w-full max-w-lg glass-card shadow-2xl">
                 <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-                    <CardTitle>{initialData ? "Redigera betalning" : "Registrera ny betalning"}</CardTitle>
+                    <CardTitle>{initialData ? t('form.payment.edit_title') : t('form.payment.add_title')}</CardTitle>
                     <Button variant="ghost" size="icon" onClick={onClose}>
                         <X className="h-5 w-5" />
                     </Button>
@@ -139,7 +141,7 @@ export function PaymentForm({ onClose, onSuccess, initialData, selectedFamilyId 
                         )}
 
                         <div className="grid gap-2">
-                            <label className="text-sm font-medium">Familj</label>
+                            <label className="text-sm font-medium">{t('form.payment.family_label')}</label>
                             <select
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background disabled:opacity-50"
                                 value={formData.familj_id}
@@ -147,7 +149,7 @@ export function PaymentForm({ onClose, onSuccess, initialData, selectedFamilyId 
                                 disabled={!!initialData || !!selectedFamilyId}
                                 required
                             >
-                                <option value="">-- Välj familj --</option>
+                                <option value="">{t('form.payment.family_placeholder')}</option>
                                 {families.map(f => (
                                     <option key={f.id} value={f.id}>
                                         {f.familje_namn} ({f.make_namn || f.hustru_namn})
@@ -158,7 +160,7 @@ export function PaymentForm({ onClose, onSuccess, initialData, selectedFamilyId 
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
-                                <label className="text-sm font-medium text-muted-foreground">Estimerad Månadsavgift</label>
+                                <label className="text-sm font-medium text-muted-foreground">{t('form.payment.est_monthly')}</label>
                                 <Input
                                     type="number"
                                     value={formData.total_manads_avgift}
@@ -166,7 +168,7 @@ export function PaymentForm({ onClose, onSuccess, initialData, selectedFamilyId 
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <label className="text-sm font-medium text-muted-foreground">Estimerad Årsavgift</label>
+                                <label className="text-sm font-medium text-muted-foreground">{t('form.payment.est_yearly')}</label>
                                 <Input
                                     type="number"
                                     value={formData.total_ars_avgift}
@@ -177,7 +179,7 @@ export function PaymentForm({ onClose, onSuccess, initialData, selectedFamilyId 
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
-                                <label className="text-sm font-medium">Betalad summa (kr)</label>
+                                <label className="text-sm font-medium">{t('form.payment.paid_amount')}</label>
                                 <Input
                                     type="number"
                                     required
@@ -186,46 +188,46 @@ export function PaymentForm({ onClose, onSuccess, initialData, selectedFamilyId 
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <label className="text-sm font-medium">Betalat via</label>
+                                <label className="text-sm font-medium">{t('form.payment.paid_via')}</label>
                                 <select
                                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                     value={formData.betalat_via}
                                     onChange={(e) => setFormData({ ...formData, betalat_via: e.target.value })}
                                     required
                                 >
-                                    <option value="Swish">Swish</option>
-                                    <option value="Bank Överföring">Bank Överföring</option>
-                                    <option value="Kontant">Kontant</option>
-                                    <option value="Annat">Annat</option>
+                                    <option value="Swish">{t('form.payment.swish')}</option>
+                                    <option value="Bank Överföring">{t('form.payment.bank_transfer')}</option>
+                                    <option value="Kontant">{t('form.payment.cash')}</option>
+                                    <option value="Annat">{t('form.payment.other')}</option>
                                 </select>
                             </div>
                         </div>
 
                         <div className="grid gap-2">
-                            <label className="text-sm font-medium">Giltig till datum</label>
+                            <label className="text-sm font-medium">{t('form.payment.valid_until')}</label>
                             <Input
                                 type="date"
                                 required
                                 value={formData.betalat_till_datum}
                                 onChange={(e) => setFormData({ ...formData, betalat_till_datum: e.target.value })}
                             />
-                            <p className="text-xs text-muted-foreground">Medlemskapet är giltigt fram till detta datum.</p>
+                            <p className="text-xs text-muted-foreground">{t('form.payment.valid_desc')}</p>
                         </div>
 
                         <div className="grid gap-2">
-                            <label className="text-sm font-medium">Betalningsreferens (Frivillig)</label>
+                            <label className="text-sm font-medium">{t('form.payment.ref')}</label>
                             <Input
                                 value={formData.betalnings_referens}
                                 onChange={(e) => setFormData({ ...formData, betalnings_referens: e.target.value })}
-                                placeholder="T.ex. Swish-nummer eller kvitto-ID"
+                                placeholder={t('form.payment.ref_placeholder')}
                             />
                         </div>
 
                     </CardContent>
                     <div className="p-6 border-t flex justify-end gap-3 bg-card/80">
-                        <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>Avbryt</Button>
+                        <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>{t('common.cancel')}</Button>
                         <Button type="submit" variant="premium" disabled={loading}>
-                            {loading ? "Sparar..." : "Spara betalning"}
+                            {loading ? t('form.payment.saving') : t('form.payment.btn_save')}
                         </Button>
                     </div>
                 </form>

@@ -4,11 +4,13 @@ import { useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart3 } from "lucide-react"
+import { useLanguage } from "@/components/language-provider"
 
 const months = ["Januari", "Februari", "Mars", "April", "Maj", "Juni", "Juli", "Augusti", "September", "Oktober", "November", "December"]
 
 export default function StatistikPage() {
     const supabase = createClient()
+    const { t } = useLanguage()
     const [data, setData] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -35,14 +37,14 @@ export default function StatistikPage() {
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Statistik</h1>
-                <p className="text-muted-foreground">Månatlig översikt av intäkter och utgifter.</p>
+                <h1 className="text-3xl font-bold tracking-tight">{t('page.stats.title')}</h1>
+                <p className="text-muted-foreground">{t('page.stats.desc')}</p>
             </div>
 
             <Card className="glass-card border-none">
                 <CardHeader>
                     <CardTitle className="text-lg flex items-center">
-                        <BarChart3 className="mr-2 h-5 w-5 text-primary" /> Intäkter vs Utgifter
+                        <BarChart3 className="mr-2 h-5 w-5 text-primary" /> {t('page.stats.income_vs_expenses')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -54,13 +56,13 @@ export default function StatistikPage() {
                                     <div
                                         className="w-2 md:w-4 bg-green-500 rounded-t-sm transition-all duration-500 hover:bg-green-600"
                                         style={{ height: `${(d.income / maxVal) * 100}%` }}
-                                        title={`Intäkt: ${d.income} kr`}
+                                        title={`${t('page.stats.income_tooltip')} ${d.income} kr`}
                                     />
                                     {/* Expense bar */}
                                     <div
                                         className="w-2 md:w-4 bg-red-500 rounded-t-sm transition-all duration-500 hover:bg-red-600"
                                         style={{ height: `${(d.expense / maxVal) * 100}%` }}
-                                        title={`Utgift: ${d.expense} kr`}
+                                        title={`${t('page.stats.expense_tooltip')} ${d.expense} kr`}
                                     />
                                 </div>
                                 <span className="text-[10px] md:text-xs text-muted-foreground rotate-45 md:rotate-0 mt-2">{d.month.substring(0, 3)}</span>
@@ -70,11 +72,11 @@ export default function StatistikPage() {
                     <div className="flex justify-center gap-6 mt-12 text-sm">
                         <div className="flex items-center gap-2">
                             <div className="w-3 h-3 bg-green-500 rounded-sm" />
-                            <span>Intäkter</span>
+                            <span>{t('page.stats.label_income')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="w-3 h-3 bg-red-500 rounded-sm" />
-                            <span>Utgifter</span>
+                            <span>{t('page.stats.label_expenses')}</span>
                         </div>
                     </div>
                 </CardContent>

@@ -5,9 +5,11 @@ import { createClient } from "@/utils/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, TrendingDown, Wallet, Users, ArrowUpRight, ArrowDownRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useLanguage } from "@/components/language-provider"
 
 export default function Dashboard() {
     const supabase = createClient()
+    const { t } = useLanguage()
     const [stats, setStats] = useState({
         totalIncome: 0,
         totalExpenses: 0,
@@ -43,20 +45,20 @@ export default function Dashboard() {
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Summering</h1>
-                <p className="text-muted-foreground">Övergripande ekonomisk status för föreningen.</p>
+                <h1 className="text-3xl font-bold tracking-tight">{t('page.dashboard.title')}</h1>
+                <p className="text-muted-foreground">{t('page.dashboard.desc')}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="glass-card border-none overflow-hidden group">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Totala Intäkter</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">{t('page.dashboard.total_income')}</CardTitle>
                         <TrendingUp className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold text-green-600">{loading ? "..." : `${stats.totalIncome.toLocaleString('sv-SE')} kr`}</div>
                         <p className="text-xs text-muted-foreground mt-1 flex items-center">
-                            <ArrowUpRight className="h-3 w-3 mr-1" /> Från alla källor
+                            <ArrowUpRight className="h-3 w-3 mr-1" /> {t('page.dashboard.from_all_sources')}
                         </p>
                     </CardContent>
                     <div className="h-1 w-full bg-green-500/20 group-hover:bg-green-500/40 transition-colors" />
@@ -64,13 +66,13 @@ export default function Dashboard() {
 
                 <Card className="glass-card border-none overflow-hidden group">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Totala Utgifter</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">{t('page.dashboard.total_expenses')}</CardTitle>
                         <TrendingDown className="h-4 w-4 text-red-500" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold text-red-600">{loading ? "..." : `${stats.totalExpenses.toLocaleString('sv-SE')} kr`}</div>
                         <p className="text-xs text-muted-foreground mt-1 flex items-center">
-                            <ArrowDownRight className="h-3 w-3 mr-1" /> Hyra, räkningar etc.
+                            <ArrowDownRight className="h-3 w-3 mr-1" /> {t('page.dashboard.rent_bills')}
                         </p>
                     </CardContent>
                     <div className="h-1 w-full bg-red-500/20 group-hover:bg-red-500/40 transition-colors" />
@@ -78,14 +80,14 @@ export default function Dashboard() {
 
                 <Card className="glass-card border-none overflow-hidden group">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Resterande (Netto)</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">{t('page.dashboard.net_balance')}</CardTitle>
                         <Wallet className="h-4 w-4 text-primary" />
                     </CardHeader>
                     <CardContent>
                         <div className={cn("text-3xl font-bold", remaining >= 0 ? "text-primary" : "text-destructive")}>
                             {loading ? "..." : `${remaining.toLocaleString('sv-SE')} kr`}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">Saldot i kassan</p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('page.dashboard.cash_balance')}</p>
                     </CardContent>
                     <div className="h-1 w-full bg-primary/20 group-hover:bg-primary/40 transition-colors" />
                 </Card>
@@ -94,7 +96,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="glass-card border-none">
                     <CardHeader>
-                        <CardTitle>Medlemskap</CardTitle>
+                        <CardTitle>{t('page.dashboard.membership')}</CardTitle>
                     </CardHeader>
                     <CardContent className="flex items-center gap-4">
                         <div className="p-4 rounded-full bg-primary/10">
@@ -102,7 +104,7 @@ export default function Dashboard() {
                         </div>
                         <div>
                             <div className="text-2xl font-bold">{stats.familyCount}</div>
-                            <p className="text-sm text-muted-foreground">Registrerade familjer</p>
+                            <p className="text-sm text-muted-foreground">{t('page.dashboard.registered_families')}</p>
                         </div>
                     </CardContent>
                 </Card>

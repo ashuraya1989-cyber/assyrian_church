@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { X, Plus, Trash2 } from "lucide-react"
+import { useLanguage } from "@/components/language-provider"
 
 interface FamilyFormProps {
     onClose: () => void
@@ -15,6 +16,7 @@ interface FamilyFormProps {
 
 export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps) {
     const supabase = createClient()
+    const { t } = useLanguage()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [validationErrors, setValidationErrors] = useState<string[]>([])
@@ -90,24 +92,24 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
 
         if (errors.length > 0) {
             setValidationErrors(errors)
-            setError("Vänligen fyll i alla obligatoriska fält korrekt (markerade i rött). Personnummer måste vara 12 siffror.")
+            setError(t('form.family.error_mandatory'))
             setLoading(false)
             return
         }
 
         // Confirmation dialogs
         if (!hasMakeName && hasHustruName) {
-            if (!window.confirm("Vill du gå vidare utan att fylla i Make fältet?")) {
+            if (!window.confirm(t('form.family.confirm_no_husband'))) {
                 setLoading(false);
                 return;
             }
         } else if (hasMakeName && !hasHustruName) {
-            if (!window.confirm("Vill du gå vidare utan att fylla i Hustru fältet?")) {
+            if (!window.confirm(t('form.family.confirm_no_wife'))) {
                 setLoading(false);
                 return;
             }
         } else {
-            if (!window.confirm("Vill du spara familj i familje registret?")) {
+            if (!window.confirm(t('form.family.confirm_save'))) {
                 setLoading(false);
                 return;
             }
@@ -133,7 +135,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
 
             onSuccess()
         } catch (err: any) {
-            setError(err.message || "Ett fel uppstod vid sparande")
+            setError(err.message || t('form.family.error_save'))
         } finally {
             setLoading(false)
         }
@@ -143,7 +145,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto glass-card shadow-2xl">
                 <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-                    <CardTitle>{initialData ? "Redigera familj" : "Lägg till ny familj"}</CardTitle>
+                    <CardTitle>{initialData ? t('form.family.edit_title') : t('form.family.add_title')}</CardTitle>
                     <Button variant="ghost" size="icon" onClick={onClose}>
                         <X className="h-5 w-5" />
                     </Button>
@@ -159,9 +161,9 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Family & Contact */}
                             <div className="space-y-4">
-                                <h3 className="text-lg font-semibold border-b pb-2">Huvudinformation</h3>
+                                <h3 className="text-lg font-semibold border-b pb-2">{t('form.family.main_info')}</h3>
                                 <div className="grid gap-2">
-                                    <label className="text-sm font-medium">Familje efternamn</label>
+                                    <label className="text-sm font-medium">{t('form.family.family_name')}</label>
                                     <Input
                                         className={validationErrors.includes('familje_namn') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                         value={familyData.familje_namn}
@@ -171,7 +173,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="grid gap-2">
-                                        <label className="text-sm font-medium">Mobil</label>
+                                        <label className="text-sm font-medium">{t('form.family.mobile')}</label>
                                         <Input
                                             className={validationErrors.includes('mobil_nummer') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                             value={familyData.mobil_nummer}
@@ -179,7 +181,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                         />
                                     </div>
                                     <div className="grid gap-2">
-                                        <label className="text-sm font-medium">E-post</label>
+                                        <label className="text-sm font-medium">{t('form.family.email')}</label>
                                         <Input
                                             className={validationErrors.includes('mail') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                             type="email"
@@ -189,7 +191,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                     </div>
                                 </div>
                                 <div className="grid gap-2">
-                                    <label className="text-sm font-medium">Adress</label>
+                                    <label className="text-sm font-medium">{t('form.family.address')}</label>
                                     <Input
                                         className={validationErrors.includes('adress') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                         value={familyData.adress}
@@ -198,7 +200,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="grid gap-2">
-                                        <label className="text-sm font-medium">Ort</label>
+                                        <label className="text-sm font-medium">{t('form.family.city')}</label>
                                         <Input
                                             className={validationErrors.includes('ort') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                             value={familyData.ort}
@@ -206,7 +208,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                         />
                                     </div>
                                     <div className="grid gap-2">
-                                        <label className="text-sm font-medium">Postnummer</label>
+                                        <label className="text-sm font-medium">{t('form.family.zip')}</label>
                                         <Input
                                             className={validationErrors.includes('post_kod') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                             value={familyData.post_kod}
@@ -215,30 +217,30 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                     </div>
                                 </div>
                                 <div className="grid gap-2">
-                                    <label className="text-sm font-medium">Land</label>
+                                    <label className="text-sm font-medium">{t('form.family.country')}</label>
                                     <select
                                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                         value={familyData.land}
                                         onChange={(e) => setFamilyData({ ...familyData, land: e.target.value })}
                                     >
-                                        <option value="Sverige">Sverige</option>
-                                        <option value="Danmark">Danmark</option>
-                                        <option value="Norge">Norge</option>
-                                        <option value="Finland">Finland</option>
-                                        <option value="Tyskland">Tyskland</option>
-                                        <option value="USA">USA</option>
-                                        <option value="Storbritannien">Storbritannien</option>
-                                        <option value="Annat">Annat</option>
+                                        <option value="Sverige">{t('form.family.country_sweden')}</option>
+                                        <option value="Danmark">{t('form.family.country_denmark')}</option>
+                                        <option value="Norge">{t('form.family.country_norway')}</option>
+                                        <option value="Finland">{t('form.family.country_finland')}</option>
+                                        <option value="Tyskland">{t('form.family.country_germany')}</option>
+                                        <option value="USA">{t('form.family.country_usa')}</option>
+                                        <option value="Storbritannien">{t('form.family.country_uk')}</option>
+                                        <option value="Annat">{t('form.family.country_other')}</option>
                                     </select>
                                 </div>
                             </div>
 
                             {/* Parents */}
                             <div className="space-y-4">
-                                <h3 className="text-lg font-semibold border-b pb-2">Vuxna</h3>
+                                <h3 className="text-lg font-semibold border-b pb-2">{t('form.family.adults')}</h3>
                                 <div className="p-4 rounded-lg bg-muted/30 border space-y-4">
                                     <div className="grid gap-2">
-                                        <label className="text-sm font-medium text-primary">Make (Namn)</label>
+                                        <label className="text-sm font-medium text-primary">{t('form.family.husband_name')}</label>
                                         <Input
                                             className={validationErrors.includes('make_namn') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                             value={familyData.make_namn}
@@ -247,7 +249,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <div className="grid gap-2">
-                                            <label className="text-sm font-medium">Personnummer (12 siffror)</label>
+                                            <label className="text-sm font-medium">{t('form.family.ssn')}</label>
                                             <Input
                                                 className={validationErrors.includes('make_personnummer') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                                 type="text"
@@ -258,7 +260,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                             />
                                         </div>
                                         <div className="grid gap-2">
-                                            <label className="text-sm font-medium">Avgift (SEK)</label>
+                                            <label className="text-sm font-medium">{t('form.family.fee')}</label>
                                             <Input
                                                 className={validationErrors.includes('make_manads_avgift') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                                 type="number"
@@ -271,7 +273,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
 
                                 <div className="p-4 rounded-lg bg-muted/30 border space-y-4">
                                     <div className="grid gap-2">
-                                        <label className="text-sm font-medium text-pink-600">Hustru (Namn)</label>
+                                        <label className="text-sm font-medium text-pink-600">{t('form.family.wife_name')}</label>
                                         <Input
                                             value={familyData.hustru_namn}
                                             onChange={(e) => setFamilyData({ ...familyData, hustru_namn: e.target.value })}
@@ -279,7 +281,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <div className="grid gap-2">
-                                            <label className="text-sm font-medium">Personnummer (12 siffror)</label>
+                                            <label className="text-sm font-medium">{t('form.family.ssn')}</label>
                                             <Input
                                                 type="text"
                                                 maxLength={12}
@@ -289,7 +291,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                             />
                                         </div>
                                         <div className="grid gap-2">
-                                            <label className="text-sm font-medium">Avgift (SEK)</label>
+                                            <label className="text-sm font-medium">{t('form.family.fee')}</label>
                                             <Input
                                                 type="number"
                                                 value={familyData.hustru_manads_avgift}
@@ -304,9 +306,9 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                         {/* Children */}
                         <div className="space-y-4 pt-4">
                             <div className="flex items-center justify-between border-b pb-2">
-                                <h3 className="text-lg font-semibold">Barn (Max 6)</h3>
+                                <h3 className="text-lg font-semibold">{t('form.family.children_max')}</h3>
                                 <Button type="button" variant="outline" size="sm" onClick={addChild} disabled={children.length >= 6}>
-                                    <Plus className="h-4 w-4 mr-1" /> Lägg till barn
+                                    <Plus className="h-4 w-4 mr-1" /> {t('form.family.add_child')}
                                 </Button>
                             </div>
 
@@ -322,16 +324,16 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                         </button>
                                         <div className="space-y-3">
                                             <div className="grid gap-1">
-                                                <label className="text-xs font-semibold uppercase text-muted-foreground">Namn (Barn {index + 1})</label>
+                                                <label className="text-xs font-semibold uppercase text-muted-foreground">{t('form.family.child_name')} {index + 1})</label>
                                                 <Input
-                                                    placeholder="Barnets namn"
+                                                    placeholder={t('form.family.child_placeholder')}
                                                     value={child.namn}
                                                     onChange={(e) => updateChild(index, 'namn', e.target.value)}
                                                 />
                                             </div>
                                             <div className="grid grid-cols-2 gap-2">
                                                 <div className="grid gap-1">
-                                                    <label className="text-xs font-semibold uppercase text-muted-foreground">Personnummer (12 siffror)</label>
+                                                    <label className="text-xs font-semibold uppercase text-muted-foreground">{t('form.family.ssn')}</label>
                                                     <Input
                                                         type="text"
                                                         maxLength={12}
@@ -341,7 +343,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                                     />
                                                 </div>
                                                 <div className="grid gap-1">
-                                                    <label className="text-xs font-semibold uppercase text-muted-foreground">Avgift (SEK)</label>
+                                                    <label className="text-xs font-semibold uppercase text-muted-foreground">{t('form.family.fee')}</label>
                                                     <Input
                                                         type="number"
                                                         value={child.manads_avgift}
@@ -354,16 +356,16 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                 ))}
                                 {children.length === 0 && (
                                     <div className="col-span-full py-8 text-center border-2 border-dashed rounded-lg text-muted-foreground">
-                                        Inga barn tillagda än. Klicka på "Lägg till barn" för att registrera barn.
+                                        {t('form.family.no_children')}
                                     </div>
                                 )}
                             </div>
                         </div>
                     </CardContent>
                     <div className="p-6 border-t flex justify-end gap-3 sticky bottom-0 bg-card/80 backdrop-blur-md">
-                        <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>Avbryt</Button>
+                        <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>{t('common.cancel')}</Button>
                         <Button type="submit" variant="premium" disabled={loading}>
-                            {loading ? "Sparar..." : (initialData ? "Uppdatera familj" : "Spara familj")}
+                            {loading ? t('form.family.saving') : (initialData ? t('form.family.btn_update') : t('form.family.btn_save'))}
                         </Button>
                     </div>
                 </form>
