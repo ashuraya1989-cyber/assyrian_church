@@ -1,7 +1,16 @@
--- 1. Bytt namn på födelsedatum-kolumnerna till personnummer
-ALTER TABLE familjer RENAME COLUMN make_fodelse_datum TO make_personnummer;
-ALTER TABLE familjer RENAME COLUMN hustru_fodelse_datum TO hustru_personnummer;
-ALTER TABLE barn RENAME COLUMN fodelse_datum TO personnummer;
+-- 1. Bytt namn på födelsedatum-kolumnerna till personnummer (idempotent, ignorera om det redan är gjort)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='familjer' AND column_name='make_fodelse_datum') THEN
+        ALTER TABLE familjer RENAME COLUMN make_fodelse_datum TO make_personnummer;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='familjer' AND column_name='hustru_fodelse_datum') THEN
+        ALTER TABLE familjer RENAME COLUMN hustru_fodelse_datum TO hustru_personnummer;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='barn' AND column_name='fodelse_datum') THEN
+        ALTER TABLE barn RENAME COLUMN fodelse_datum TO personnummer;
+    END IF;
+END $$;
 
 -- 2. Ändra datatyp från DATE till TEXT för att tillåta 12 siffror (ÅÅÅÅMMDDNNNN)
 ALTER TABLE familjer ALTER COLUMN make_personnummer TYPE TEXT;
