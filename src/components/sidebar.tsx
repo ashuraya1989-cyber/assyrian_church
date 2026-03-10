@@ -11,7 +11,8 @@ import {
     BarChart3,
     LogOut,
     LayoutDashboard,
-    Settings
+    Settings,
+    UserCog
 } from "lucide-react"
 import { createClient } from "@/utils/supabase/client"
 import { useLanguage } from "@/components/language-provider"
@@ -19,12 +20,13 @@ import { useEffect, useState } from "react"
 
 const navItems = [
     { key: "nav.dashboard", href: "/", icon: LayoutDashboard },
-    { key: "nav.register", href: "/register", icon: Users },
-    { key: "nav.payments", href: "/betalningar", icon: CreditCard },
-    { key: "nav.expenses", href: "/utgifter", icon: TrendingDown },
-    { key: "nav.income", href: "/intakter", icon: TrendingUp },
-    { key: "nav.stats", href: "/statistik", icon: BarChart3 },
-    { key: "nav.settings", href: "/installningar", icon: Settings },
+    { key: "nav.register", href: "/register", icon: Users, permission: "register" },
+    { key: "nav.payments", href: "/betalningar", icon: CreditCard, permission: "payments" },
+    { key: "nav.expenses", href: "/utgifter", icon: TrendingDown, permission: "expenses" },
+    { key: "nav.income", href: "/intakter", icon: TrendingUp, permission: "income" },
+    { key: "nav.stats", href: "/statistik", icon: BarChart3, permission: "stats" },
+    { key: "nav.settings", href: "/installningar", icon: Settings, permission: "settings" },
+    { key: "nav.users", href: "/anvandare", icon: UserCog, permission: "users" },
 ]
 
 export function Sidebar() {
@@ -34,6 +36,8 @@ export function Sidebar() {
     const [adminTitle, setAdminTitle] = useState<string>("Medlemsregister")
     const [adminLogoUrl, setAdminLogoUrl] = useState<string | null>(null)
     const [adminLogoSize, setAdminLogoSize] = useState<number>(32)
+    const [userRole, setUserRole] = useState<string>("user")
+    const [userPermissions, setUserPermissions] = useState<string[]>([])
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -44,7 +48,20 @@ export function Sidebar() {
                 if (data.admin_logo_size) setAdminLogoSize(data.admin_logo_size)
             }
         }
+
+        const fetchUserProfile = async () => {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session?.user?.id) {
+                const { data } = await supabase.from('user_profiles').select('role, permissions').eq('id', session.user.id).single()
+                if (data) {
+                    setUserRole(data.role)
+                    setUserPermissions(data.permissions || [])
+                }
+            }
+        }
+
         fetchSettings()
+        fetchUserProfile()
     }, [supabase])
 
     const handleLogout = async () => {
@@ -69,6 +86,14 @@ export function Sidebar() {
             </div>
             <nav className="flex-1 space-y-1 px-3">
                 {navItems.map((item) => {
+                    // Check permissions
+                    if (item.permission) {
+                        if (userRole === 'user') {
+                            if (!userPermissions.includes(item.permission)) return null;
+                            if (item.permission === 'settings' || item.permission === 'users') return null; // Force hide admin links from standard users
+                        }
+                    }
+
                     const Icon = item.icon
                     const isActive = pathname.startsWith(item.href)
                     return (
