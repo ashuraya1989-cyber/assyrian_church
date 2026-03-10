@@ -116,3 +116,156 @@ BEGIN
 
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create app_settings table
+CREATE TABLE IF NOT EXISTS public.app_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1), -- Only allow one row
+    admin_logo_url TEXT,
+    login_logo_url TEXT,
+    admin_title TEXT DEFAULT 'Medlemsregister',
+    login_title TEXT DEFAULT 'Välkommen',
+    login_subtitle TEXT DEFAULT 'Logga in på medlemsregistret',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Insert default row
+INSERT INTO public.app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE public.app_settings
+ADD COLUMN IF NOT EXISTS admin_logo_size INTEGER DEFAULT 32,
+ADD COLUMN IF NOT EXISTS login_logo_size INTEGER DEFAULT 64;
+-- Skapa public_assets bucket om den inte finns
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('public_assets', 'public_assets', true)
+ON CONFLICT (id) DO NOTHING;
+-- Ta bort befintliga säkerhetsregler (policies) för att undvika konflikter
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Public Read Access') THEN
+        DROP POLICY "Public Read Access" on storage.objects;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Authenticated users can upload') THEN
+        DROP POLICY "Authenticated users can upload" on storage.objects;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Authenticated users can update') THEN
+        DROP POLICY "Authenticated users can update" on storage.objects;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Authenticated users can delete') THEN
+        DROP POLICY "Authenticated users can delete" on storage.objects;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'app_settings' AND policyname = 'Allow public read access to settings') THEN
+        DROP POLICY "Allow public read access to settings" on public.app_settings;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'app_settings' AND policyname = 'Allow authenticated update access to settings') THEN
+        DROP POLICY "Allow authenticated update access to settings" on public.app_settings;
+    END IF;
+END $$;
+-- Kör om app_settings regler
+ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read access to settings" ON public.app_settings FOR SELECT TO public USING (true);
+CREATE POLICY "Allow authenticated update access to settings" ON public.app_settings FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+-- Skapa lagringsregler (Storage Policies) för public_assets
+CREATE POLICY "Public Read Access" ON storage.objects FOR SELECT USING (bucket_id = 'public_assets');
+CREATE POLICY "Authenticated users can upload" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'public_assets');
+CREATE POLICY "Authenticated users can update" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'public_assets');
+CREATE POLICY "Authenticated users can delete" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'public_assets');
+
+-- Create an enum for user roles
+DO $$ BEGIN
+    CREATE TYPE user_role AS ENUM ('superadmin', 'admin', 'user');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- Create the user_profiles table
+CREATE TABLE IF NOT EXISTS public.user_profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email TEXT,
+    role user_role DEFAULT 'user',
+    permissions JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- Drop early versions in case they exist:
+DO $$
+BEGIN
+    DROP POLICY IF EXISTS "Admins can view all profiles" ON public.user_profiles;
+    DROP POLICY IF EXISTS "Users can view own profile" ON public.user_profiles;
+    DROP POLICY IF EXISTS "Admins can update profiles" ON public.user_profiles;
+    DROP POLICY IF EXISTS "Admins can insert profiles" ON public.user_profiles;
+    DROP POLICY IF EXISTS "Admins can delete profiles" ON public.user_profiles;
+END $$;
+
+-- 1. Admins and Superadmins can read all profiles
+CREATE POLICY "Admins can view all profiles" 
+ON public.user_profiles FOR SELECT TO authenticated
+USING (EXISTS (SELECT 1 FROM public.user_profiles up WHERE up.id = auth.uid() AND (up.role = 'superadmin' OR up.role = 'admin')));
+
+-- 2. ALL users can view their own profile
+CREATE POLICY "Users can view own profile" 
+ON public.user_profiles FOR SELECT TO authenticated USING (id = auth.uid());
+
+-- 3. Admins and Superadmins can update profiles
+CREATE POLICY "Admins can update profiles" 
+ON public.user_profiles FOR UPDATE TO authenticated
+USING (EXISTS (SELECT 1 FROM public.user_profiles up WHERE up.id = auth.uid() AND (up.role = 'superadmin' OR up.role = 'admin')));
+
+-- 4. Admins and Superadmins can insert profiles
+CREATE POLICY "Admins can insert profiles" 
+ON public.user_profiles FOR INSERT TO authenticated, service_role
+WITH CHECK (
+    current_user = 'service_role' OR
+    EXISTS (SELECT 1 FROM public.user_profiles up WHERE up.id = auth.uid() AND (up.role = 'superadmin' OR up.role = 'admin')
+));
+
+-- 5. Admins and Superadmins can delete profiles
+CREATE POLICY "Admins can delete profiles" 
+ON public.user_profiles FOR DELETE TO authenticated
+USING (EXISTS (SELECT 1 FROM public.user_profiles up WHERE up.id = auth.uid() AND (up.role = 'superadmin' OR up.role = 'admin')));
+
+-- Function to handle new user signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+    is_first_user BOOLEAN;
+BEGIN
+    SELECT NOT EXISTS (SELECT 1 FROM public.user_profiles) INTO is_first_user;
+    INSERT INTO public.user_profiles (id, email, role, permissions)
+    VALUES (
+        NEW.id, NEW.email,
+        CASE WHEN is_first_user THEN 'superadmin'::user_role ELSE 'user'::user_role END,
+        CASE WHEN is_first_user THEN '["register", "payments", "income", "expenses", "stats", "settings", "users"]'::jsonb ELSE '[]'::jsonb END
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- Trigger for new user signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- Manually sync any existing users that don't have a profile yet
+DO $$
+DECLARE
+    user_record RECORD;
+    is_first BOOLEAN := true;
+BEGIN
+    FOR user_record IN SELECT id, email FROM auth.users WHERE id NOT IN (SELECT id FROM public.user_profiles)
+    LOOP
+        INSERT INTO public.user_profiles (id, email, role, permissions)
+        VALUES (
+            user_record.id, user_record.email, 
+            CASE WHEN is_first THEN 'superadmin'::user_role ELSE 'user'::user_role END,
+            CASE WHEN is_first THEN '["register", "payments", "income", "expenses", "stats", "settings", "users"]'::jsonb ELSE '[]'::jsonb END
+        );
+        is_first := false;
+    END LOOP;
+END;
+$$;
