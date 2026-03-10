@@ -17,6 +17,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
     const supabase = createClient()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [validationErrors, setValidationErrors] = useState<string[]>([])
 
     const [familyData, setFamilyData] = useState({
         id: initialData?.id || undefined,
@@ -59,9 +60,23 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
         e.preventDefault()
         setLoading(true)
         setError(null)
+        setValidationErrors([])
 
-        if (!familyData.make_namn && !familyData.hustru_namn) {
-            setError("Minst ett vuxet namn (make eller hustru) måste finnas.")
+        const errors: string[] = []
+
+        if (!familyData.familje_namn?.trim()) errors.push('familje_namn')
+        if (!familyData.mobil_nummer?.trim()) errors.push('mobil_nummer')
+        if (!familyData.mail?.trim()) errors.push('mail')
+        if (!familyData.adress?.trim()) errors.push('adress')
+        if (!familyData.ort?.trim()) errors.push('ort')
+        if (!familyData.post_kod?.trim()) errors.push('post_kod')
+        if (!familyData.make_namn?.trim()) errors.push('make_namn')
+        if (!familyData.make_personnummer || familyData.make_personnummer.trim().length !== 12) errors.push('make_personnummer')
+        if (familyData.make_manads_avgift === undefined || familyData.make_manads_avgift === null || isNaN(familyData.make_manads_avgift)) errors.push('make_manads_avgift')
+
+        if (errors.length > 0) {
+            setValidationErrors(errors)
+            setError("Vänligen fyll i alla obligatoriska fält korrekt (markerade i rött). Personnummer måste vara 12 siffror.")
             setLoading(false)
             return
         }
@@ -116,6 +131,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                 <div className="grid gap-2">
                                     <label className="text-sm font-medium">Familje efternamn</label>
                                     <Input
+                                        className={validationErrors.includes('familje_namn') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                         value={familyData.familje_namn}
                                         onChange={(e) => setFamilyData({ ...familyData, familje_namn: e.target.value })}
                                         required
@@ -125,6 +141,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                     <div className="grid gap-2">
                                         <label className="text-sm font-medium">Mobil</label>
                                         <Input
+                                            className={validationErrors.includes('mobil_nummer') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                             value={familyData.mobil_nummer}
                                             onChange={(e) => setFamilyData({ ...familyData, mobil_nummer: e.target.value })}
                                         />
@@ -132,6 +149,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                     <div className="grid gap-2">
                                         <label className="text-sm font-medium">E-post</label>
                                         <Input
+                                            className={validationErrors.includes('mail') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                             type="email"
                                             value={familyData.mail}
                                             onChange={(e) => setFamilyData({ ...familyData, mail: e.target.value })}
@@ -141,6 +159,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                 <div className="grid gap-2">
                                     <label className="text-sm font-medium">Adress</label>
                                     <Input
+                                        className={validationErrors.includes('adress') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                         value={familyData.adress}
                                         onChange={(e) => setFamilyData({ ...familyData, adress: e.target.value })}
                                     />
@@ -149,6 +168,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                     <div className="grid gap-2">
                                         <label className="text-sm font-medium">Ort</label>
                                         <Input
+                                            className={validationErrors.includes('ort') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                             value={familyData.ort}
                                             onChange={(e) => setFamilyData({ ...familyData, ort: e.target.value })}
                                         />
@@ -156,6 +176,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                     <div className="grid gap-2">
                                         <label className="text-sm font-medium">Postnummer</label>
                                         <Input
+                                            className={validationErrors.includes('post_kod') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                             value={familyData.post_kod}
                                             onChange={(e) => setFamilyData({ ...familyData, post_kod: e.target.value })}
                                         />
@@ -187,6 +208,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                     <div className="grid gap-2">
                                         <label className="text-sm font-medium text-primary">Make (Namn)</label>
                                         <Input
+                                            className={validationErrors.includes('make_namn') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                             value={familyData.make_namn}
                                             onChange={(e) => setFamilyData({ ...familyData, make_namn: e.target.value })}
                                         />
@@ -195,6 +217,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                         <div className="grid gap-2">
                                             <label className="text-sm font-medium">Personnummer (12 siffror)</label>
                                             <Input
+                                                className={validationErrors.includes('make_personnummer') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                                 type="text"
                                                 maxLength={12}
                                                 placeholder="ÅÅÅÅMMDDNNNN"
@@ -205,6 +228,7 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                                         <div className="grid gap-2">
                                             <label className="text-sm font-medium">Avgift (SEK)</label>
                                             <Input
+                                                className={validationErrors.includes('make_manads_avgift') ? "border-red-500 focus-visible:ring-red-500" : ""}
                                                 type="number"
                                                 value={familyData.make_manads_avgift}
                                                 onChange={(e) => setFamilyData({ ...familyData, make_manads_avgift: parseInt(e.target.value) })}
