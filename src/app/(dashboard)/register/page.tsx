@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { FamilyForm } from "@/components/family-form"
+import { useLanguage } from "@/components/language-provider"
 
 interface Family {
     id: string
@@ -43,6 +44,7 @@ interface FullFamilyData extends Family {
 
 export default function RegisterPage() {
     const supabase = createClient()
+    const { t } = useLanguage()
     const [families, setFamilies] = useState<Family[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
@@ -163,15 +165,15 @@ export default function RegisterPage() {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Familjeregister</h1>
-                    <p className="text-muted-foreground">Hantera föreningens medlemmar och familjer.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">{t('page.register.title')}</h1>
+                    <p className="text-muted-foreground">{t('page.register.desc')}</p>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" size="icon" onClick={fetchFamilies} disabled={loading}>
                         <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
                     </Button>
                     <Button variant="premium" onClick={() => setShowForm(true)}>
-                        <UserPlus className="mr-2 h-4 w-4" /> Lägg till familj
+                        <UserPlus className="mr-2 h-4 w-4" /> {t('page.register.add')}
                     </Button>
                 </div>
             </div>
@@ -191,7 +193,7 @@ export default function RegisterPage() {
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Sök på efternamn, namn eller ort..."
+                            placeholder={t('page.register.search')}
                             className="pl-10 bg-background/50 border-white/20"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -203,11 +205,11 @@ export default function RegisterPage() {
                         <table className="w-full text-sm text-left">
                             <thead className="text-xs uppercase bg-muted/50 text-muted-foreground border-y">
                                 <tr>
-                                    <th className="px-6 py-3 font-semibold">Familjenamn</th>
-                                    <th className="px-6 py-3 font-semibold">Föräldrar</th>
-                                    <th className="px-6 py-3 font-semibold">Mobil</th>
-                                    <th className="px-6 py-3 font-semibold">Ort</th>
-                                    <th className="px-6 py-3 font-semibold text-right">Åtgärder</th>
+                                    <th className="px-6 py-3 font-semibold">{t('table.family_name')}</th>
+                                    <th className="px-6 py-3 font-semibold">{t('table.parents')}</th>
+                                    <th className="px-6 py-3 font-semibold">{t('table.mobile')}</th>
+                                    <th className="px-6 py-3 font-semibold">{t('table.city')}</th>
+                                    <th className="px-6 py-3 font-semibold text-right">{t('table.actions')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
@@ -251,7 +253,7 @@ export default function RegisterPage() {
                                 ) : (
                                     <tr>
                                         <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
-                                            {searchQuery ? "Inga familjer matchar din sökning." : "Inga familjer registrerade än."}
+                                            {searchQuery ? t('table.empty_search') : t('table.empty_register')}
                                         </td>
                                     </tr>
                                 )}

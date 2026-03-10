@@ -22,7 +22,18 @@ const translations = {
         "app.title": "Medlemsregister",
         "common.search": "Sök...",
         "common.cancel": "Avbryt",
-        "common.save": "Spara"
+        "common.save": "Spara",
+        "page.register.title": "Familjeregister",
+        "page.register.desc": "Hantera föreningens medlemmar och familjer.",
+        "page.register.add": "Lägg till familj",
+        "page.register.search": "Sök på efternamn, namn eller ort...",
+        "table.family_name": "Familjenamn",
+        "table.parents": "Föräldrar",
+        "table.mobile": "Mobil",
+        "table.city": "Ort",
+        "table.actions": "Åtgärder",
+        "table.empty_search": "Inga familjer matchar din sökning.",
+        "table.empty_register": "Inga familjer registrerade än."
     },
     en: {
         "nav.dashboard": "Dashboard",
@@ -35,7 +46,18 @@ const translations = {
         "app.title": "Member Registry",
         "common.search": "Search...",
         "common.cancel": "Cancel",
-        "common.save": "Save"
+        "common.save": "Save",
+        "page.register.title": "Family Registry",
+        "page.register.desc": "Manage the association's members and families.",
+        "page.register.add": "Add family",
+        "page.register.search": "Search by surname, name or city...",
+        "table.family_name": "Family Name",
+        "table.parents": "Parents",
+        "table.mobile": "Mobile",
+        "table.city": "City",
+        "table.actions": "Actions",
+        "table.empty_search": "No families match your search.",
+        "table.empty_register": "No families registered yet."
     }
 }
 
