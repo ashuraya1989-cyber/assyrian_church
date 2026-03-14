@@ -1,127 +1,191 @@
 "use client"
 
-export const dynamic = 'force-dynamic'
-
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { createClient } from "@/utils/supabase/client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { LogIn } from "lucide-react"
+import { LogIn, Eye, EyeOff } from "lucide-react"
 
 export default function LoginPage() {
-    // Lazy initialize to avoid build-time issues
+    const supabase = useMemo(() => {
+        try { return createClient() } catch { return null }
+    }, [])
+
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
+    const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [loginTitle, setLoginTitle] = useState<string>("Välkommen")
-    const [loginSubtitle, setLoginSubtitle] = useState<string>("Logga in på medlemsregistret")
+    const [loginTitle, setLoginTitle] = useState("Välkommen")
+    const [loginSubtitle, setLoginSubtitle] = useState("Logga in på kyrkoregistret")
     const [loginLogoUrl, setLoginLogoUrl] = useState<string | null>(null)
-    const [loginLogoSize, setLoginLogoSize] = useState<number>(64)
+    const [loginLogoSize, setLoginLogoSize] = useState(64)
 
     useEffect(() => {
+        if (!supabase) return
         const fetchSettings = async () => {
-            const supabase = createClient()
-            const { data } = await supabase.from('app_settings').select('login_title, login_subtitle, login_logo_url, login_logo_size').eq('id', 1).single()
-            if (data) {
-                if (data.login_title) setLoginTitle(data.login_title)
-                if (data.login_subtitle) setLoginSubtitle(data.login_subtitle)
-                if (data.login_logo_url) setLoginLogoUrl(data.login_logo_url)
-                if (data.login_logo_size) setLoginLogoSize(data.login_logo_size)
-            }
+            try {
+                const { data } = await supabase
+                    .from('app_settings')
+                    .select('login_title, login_subtitle, login_logo_url, login_logo_size')
+                    .eq('id', 1)
+                    .single()
+                if (data) {
+                    if (data.login_title) setLoginTitle(data.login_title)
+                    if (data.login_subtitle) setLoginSubtitle(data.login_subtitle)
+                    if (data.login_logo_url) setLoginLogoUrl(data.login_logo_url)
+                    if (data.login_logo_size) setLoginLogoSize(data.login_logo_size)
+                }
+            } catch { /* ignore settings fetch errors */ }
         }
         fetchSettings()
-    }, [])
+    }, [supabase])
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
-        setLoading(true)
-        setError(null)
-
-        const supabase = createClient()
-        if (!supabase.auth) {
-            setError("Inställningar för Supabase saknas. Kontrollera dina miljövariabler.")
-            setLoading(false)
+        if (!supabase) {
+            setError("Konfigurationsfel: Supabase-miljövariabler saknas.")
             return
         }
-
+        if (password.length < 6) {
+            setError("Lösenordet måste vara minst 6 tecken.")
+            return
+        }
+        setLoading(true)
+        setError(null)
         try {
-            const { error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            })
-
+            const { error } = await supabase.auth.signInWithPassword({ email, password })
             if (error) throw error
-
-            // Redirect handled by middleware or manually
             window.location.href = "/register"
         } catch (err: any) {
-            setError(err.message || "Ett fel uppstod vid inloggning")
+            setError(err.message || "Felaktigt e-post eller lösenord.")
         } finally {
             setLoading(false)
         }
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-background premium-gradient p-4">
-            <Card className="w-full max-w-md glass-card border-none">
-                <CardHeader className="space-y-1 text-center flex flex-col items-center">
-                    {loginLogoUrl && (
-                        <div className="mb-4">
-                            <img
-                                src={loginLogoUrl}
-                                alt="Logo"
-                                style={{ height: `${loginLogoSize}px` }}
-                                className="max-w-[300px] object-contain"
-                            />
-                        </div>
-                    )}
-                    <CardTitle className="text-3xl font-bold tracking-tight">{loginTitle}</CardTitle>
-                    <CardDescription>
-                        {loginSubtitle}
-                    </CardDescription>
-                </CardHeader>
-                <form onSubmit={handleLogin}>
-                    <CardContent className="grid gap-4">
-                        {error && (
-                            <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md border border-destructive/20">
-                                {error}
-                            </div>
-                        )}
-                        <div className="grid gap-2">
-                            <label htmlFor="email" className="text-sm font-medium">E-post</label>
-                            <Input
-                                id="email"
-                                type="email"
-                                placeholder="namn@exempel.se"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <label htmlFor="password" className="text-sm font-medium">Lösenord</label>
-                            <Input
-                                id="password"
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                            />
-                        </div>
-                    </CardContent>
-                    <CardFooter>
-                        <Button className="w-full" type="submit" disabled={loading} variant="premium">
-                            {loading ? "Loggar in..." : (
-                                <>
-                                    Logga in <LogIn className="ml-2 h-4 w-4" />
-                                </>
+        <div className="min-h-screen flex items-center justify-center bg-background p-4"
+            style={{ background: 'linear-gradient(135deg, #F7F3EC 0%, #EDE8DF 50%, #E0D8CC 100%)' }}>
+
+            {/* Decorative circles */}
+            <div className="absolute top-0 left-0 w-96 h-96 rounded-full opacity-20 pointer-events-none"
+                style={{ background: 'radial-gradient(circle, #C9A84C 0%, transparent 70%)', transform: 'translate(-40%, -40%)' }} />
+            <div className="absolute bottom-0 right-0 w-96 h-96 rounded-full opacity-10 pointer-events-none"
+                style={{ background: 'radial-gradient(circle, #1A1A1A 0%, transparent 70%)', transform: 'translate(40%, 40%)' }} />
+
+            <div className="relative w-full max-w-md">
+                {/* Card */}
+                <div className="bg-card border border-border rounded-[24px] shadow-2xl overflow-hidden">
+                    {/* Gold top accent */}
+                    <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #C9A84C 0%, #8B6914 100%)' }} />
+
+                    <div className="p-8">
+                        {/* Logo & Header */}
+                        <div className="text-center mb-8">
+                            {loginLogoUrl ? (
+                                <div className="flex justify-center mb-4">
+                                    <img
+                                        src={loginLogoUrl}
+                                        alt="Logo"
+                                        style={{ height: `${loginLogoSize}px`, maxWidth: '200px', objectFit: 'contain' }}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+                                    style={{ background: 'linear-gradient(135deg, #C9A84C 0%, #8B6914 100%)' }}>
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                                        <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                                        <path d="M2 17l10 5 10-5" />
+                                        <path d="M2 12l10 5 10-5" />
+                                    </svg>
+                                </div>
                             )}
-                        </Button>
-                    </CardFooter>
-                </form>
-            </Card>
+                            <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#1A1A1A' }}>
+                                {loginTitle}
+                            </h1>
+                            <p className="text-sm mt-1" style={{ color: '#6B6355' }}>
+                                {loginSubtitle}
+                            </p>
+                        </div>
+
+                        {/* Form */}
+                        <form onSubmit={handleLogin} className="space-y-5">
+                            {error && (
+                                <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-[10px] border border-destructive/20">
+                                    {error}
+                                </div>
+                            )}
+
+                            <div className="space-y-1.5">
+                                <label htmlFor="email" className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>
+                                    E-postadress
+                                </label>
+                                <input
+                                    id="email"
+                                    type="email"
+                                    placeholder="namn@exempel.se"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                    className="input-premium"
+                                    autoComplete="email"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label htmlFor="password" className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>
+                                    Lösenord
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        id="password"
+                                        type={showPassword ? "text" : "password"}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        required
+                                        minLength={6}
+                                        className="input-premium pr-10"
+                                        autoComplete="current-password"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                        aria-label={showPassword ? "Dölj lösenord" : "Visa lösenord"}
+                                    >
+                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full h-11 rounded-[10px] font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                                style={{ background: loading ? '#6B6355' : 'linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%)', color: '#FEFCF8' }}
+                            >
+                                {loading ? (
+                                    <>
+                                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeLinecap="round" />
+                                        </svg>
+                                        Loggar in...
+                                    </>
+                                ) : (
+                                    <>
+                                        <LogIn size={16} />
+                                        Logga in
+                                    </>
+                                )}
+                            </button>
+                        </form>
+
+                        {/* Footer */}
+                        <p className="text-center text-xs mt-6" style={{ color: '#A09080' }}>
+                            Kyrkoregistret — Säkert & Krypterat
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
     )
 }

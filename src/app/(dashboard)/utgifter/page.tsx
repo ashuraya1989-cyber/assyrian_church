@@ -1,263 +1,260 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { createClient } from "@/utils/supabase/client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingDown, Plus, Search, Calendar, RefreshCcw } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { TrendingDown, Plus, RefreshCcw, FileSpreadsheet, FileText, X } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
+import { exportToExcel, exportToPDF } from "@/lib/export"
 
-const months = ["Januari", "Februari", "Mars", "April", "Maj", "Juni", "Juli", "Augusti", "September", "Oktober", "November", "December"]
+const months = ["Januari","Februari","Mars","April","Maj","Juni","Juli","Augusti","September","Oktober","November","December"]
 
 export default function UtgifterPage() {
-    const supabase = createClient()
-    const { t } = useLanguage()
+    const supabase = useMemo(() => {
+        try { return createClient() } catch { return null }
+    }, [])
+    const { t, language } = useLanguage()
     const [items, setItems] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedMonth, setSelectedMonth] = useState("Alla")
     const [showForm, setShowForm] = useState(false)
+    const [exporting, setExporting] = useState(false)
 
     const fetchItems = async () => {
+        if (!supabase) return
         setLoading(true)
         let query = supabase.from('utgifter').select('*').order('datum', { ascending: false })
-        if (selectedMonth !== "Alla") {
-            query = query.eq('manad', selectedMonth)
-        }
-        const { data, error } = await query
-        if (error) console.error(error)
-        else setItems(data || [])
+        if (selectedMonth !== "Alla") query = query.eq('manad', selectedMonth)
+        const { data } = await query
+        setItems(data ?? [])
         setLoading(false)
     }
 
-    useEffect(() => {
-        fetchItems()
-    }, [selectedMonth])
+    useEffect(() => { fetchItems() }, [selectedMonth, supabase])
 
-    // Monthly summary calculation
     const monthlySummary = items.reduce((acc: any, item: any) => {
-        const month = item.manad
-        if (!acc[month]) acc[month] = { hyra: 0, frukost: 0, rakning: 0, annat: 0, total: 0 }
-        acc[month].hyra += item.hyra || 0
-        acc[month].frukost += item.frukost || 0
-        acc[month].rakning += item.rakning || 0
-        acc[month].annat += item.annat || 0
-        acc[month].total += item.total || 0
+        const m = item.manad
+        if (!acc[m]) acc[m] = { hyra: 0, frukost: 0, rakning: 0, annat: 0, total: 0 }
+        acc[m].hyra    += item.hyra    ?? 0
+        acc[m].frukost += item.frukost ?? 0
+        acc[m].rakning += item.rakning ?? 0
+        acc[m].annat   += item.annat   ?? 0
+        acc[m].total   += item.total   ?? 0
         return acc
     }, {})
 
+    const grandTotal = items.reduce((s, i) => s + (i.total ?? 0), 0)
+
+    const handleExcelExport = async () => {
+        setExporting(true)
+        try {
+            const headers = [language === 'sv' ? 'Datum' : 'Date', language === 'sv' ? 'Månad' : 'Month', 'Vecka', language === 'sv' ? 'Hyra' : 'Rent', language === 'sv' ? 'Frukost' : 'Breakfast', language === 'sv' ? 'Räkningar' : 'Bills', language === 'sv' ? 'Annat' : 'Other', 'Total kr']
+            const rows = items.map(i => [i.datum, i.manad, i.vecka, i.hyra ?? 0, i.frukost ?? 0, i.rakning ?? 0, i.annat ?? 0, i.total ?? 0])
+            await exportToExcel('Utgifter', language === 'sv' ? 'Utgifter' : 'Expenses', headers, rows)
+        } finally { setExporting(false) }
+    }
+
+    const handlePDFExport = async () => {
+        setExporting(true)
+        try {
+            const headers = [language === 'sv' ? 'Datum' : 'Date', language === 'sv' ? 'Månad' : 'Month', 'Vecka', 'Total kr']
+            const rows = items.map(i => [i.datum, i.manad, `V.${i.vecka}`, `${i.total ?? 0} kr`])
+            await exportToPDF('Utgifter', language === 'sv' ? 'Utgifter' : 'Expenses', headers, rows)
+        } finally { setExporting(false) }
+    }
+
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <div className="page-header flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{t('page.expenses.title')}</h1>
-                    <p className="text-muted-foreground">{t('page.expenses.desc')}</p>
+                    <h1 className="text-2xl font-bold tracking-tight">{t('page.expenses.title')}</h1>
+                    <p className="text-muted-foreground text-sm mt-1">{t('page.expenses.desc')}</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="icon" onClick={fetchItems} disabled={loading}>
-                        <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
-                    </Button>
-                    <Button variant="premium" onClick={() => setShowForm(true)}>
-                        <Plus className="mr-2 h-4 w-4" /> {t('page.expenses.new')}
-                    </Button>
+                <div className="flex flex-wrap gap-2">
+                    <button onClick={handleExcelExport} disabled={exporting || loading} className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-sm font-semibold border border-border hover:bg-secondary transition-colors disabled:opacity-50">
+                        <FileSpreadsheet size={15} style={{ color: '#2C7A4B' }} /> Excel
+                    </button>
+                    <button onClick={handlePDFExport} disabled={exporting || loading} className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-sm font-semibold border border-border hover:bg-secondary transition-colors disabled:opacity-50">
+                        <FileText size={15} style={{ color: '#C0392B' }} /> PDF
+                    </button>
+                    <button onClick={fetchItems} disabled={loading} className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-sm font-semibold border border-border hover:bg-secondary transition-colors">
+                        <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />
+                    </button>
+                    <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 rounded-[10px] text-sm font-semibold text-primary-foreground" style={{ background: '#1A1A1A' }}>
+                        <Plus size={15} /> {t('page.expenses.new')}
+                    </button>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Main List */}
-                <div className="lg:col-span-2 space-y-6">
-                    <Card className="glass-card border-none">
-                        <CardHeader className="p-4 md:p-6 flex flex-row items-center justify-between border-b">
-                            <CardTitle className="text-lg">{t('page.expenses.weekly')}</CardTitle>
-                            <select
-                                className="bg-background border rounded-md px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring"
-                                value={selectedMonth}
-                                onChange={(e) => setSelectedMonth(e.target.value)}
-                            >
-                                <option value="Alla">{t('page.expenses.all_months')}</option>
-                                {months.map((m: string) => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="text-xs uppercase bg-muted/50 text-muted-foreground border-b">
-                                        <tr>
-                                            <th className="px-6 py-3">{t('page.expenses.date_month')}</th>
-                                            <th className="px-6 py-3">{t('page.expenses.week')}</th>
-                                            <th className="px-6 py-3">{t('table.total')}</th>
-                                            <th className="px-6 py-3">{t('page.expenses.category')}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {loading ? (
-                                            Array.from({ length: 3 }).map((_, i) => (
-                                                <tr key={i} className="animate-pulse">
-                                                    <td colSpan={4} className="px-6 py-4"><div className="h-4 bg-muted rounded w-full"></div></td>
-                                                </tr>
-                                            ))
-                                        ) : items.length > 0 ? (
-                                            items.map((item: any) => (
-                                                <tr key={item.id} className="hover:bg-accent/50 transition-colors">
-                                                    <td className="px-6 py-4">
-                                                        <span className="font-medium">{item.datum}</span>
-                                                        <span className="text-xs ml-2 text-muted-foreground">{item.manad}</span>
-                                                    </td>
-                                                    <td className="px-6 py-4">V.{item.vecka}</td>
-                                                    <td className="px-6 py-4 font-bold text-red-600">-{item.total} kr</td>
-                                                    <td className="px-6 py-4 text-xs text-muted-foreground">
-                                                        {item.hyra}/{item.frukost}/{item.rakning}/{item.annat}
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        ) : (
-                                            <tr>
-                                                <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">{t('page.expenses.empty')}</td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
+                <div className="lg:col-span-2">
+                    <div className="bg-card border border-border rounded-[14px] overflow-hidden shadow-sm">
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                            <div className="flex items-center gap-2 font-semibold text-sm">
+                                <TrendingDown size={16} style={{ color: '#C0392B' }} />
+                                {t('page.expenses.weekly')}
                             </div>
-                        </CardContent>
-                    </Card>
+                            <select className="input-premium w-auto text-sm py-1.5" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>
+                                <option value="Alla">{t('page.expenses.all_months')}</option>
+                                {months.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="premium-table">
+                                <thead>
+                                    <tr>
+                                        <th>{t('page.expenses.date_month')}</th>
+                                        <th>V.</th>
+                                        <th>{t('table.total')}</th>
+                                        <th>{t('page.expenses.rent')}/{t('page.expenses.breakfast')}/{t('page.expenses.bills')}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {loading ? (
+                                        Array.from({ length: 3 }).map((_, i) => (
+                                            <tr key={i}><td colSpan={4}><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>
+                                        ))
+                                    ) : items.length > 0 ? (
+                                        items.map(item => (
+                                            <tr key={item.id}>
+                                                <td>
+                                                    <span className="font-medium">{item.datum}</span>
+                                                    <span className="text-xs text-muted-foreground ml-2">{item.manad}</span>
+                                                </td>
+                                                <td className="text-muted-foreground">V.{item.vecka}</td>
+                                                <td><span className="font-bold" style={{ color: '#C0392B' }}>-{(item.total ?? 0).toLocaleString('sv-SE')} kr</span></td>
+                                                <td className="text-xs text-muted-foreground">
+                                                    {item.hyra ?? 0}/{item.frukost ?? 0}/{item.rakning ?? 0}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr><td colSpan={4} className="text-center py-12 text-muted-foreground">{t('page.expenses.empty')}</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                        {items.length > 0 && (
+                            <div className="px-5 py-3 border-t border-border bg-secondary/30 flex justify-between items-center">
+                                <span className="text-xs text-muted-foreground">{items.length} {language === 'sv' ? 'poster' : 'entries'}</span>
+                                <span className="text-sm font-bold" style={{ color: '#C0392B' }}>
+                                    {language === 'sv' ? 'Totalt:' : 'Total:'} {grandTotal.toLocaleString('sv-SE')} kr
+                                </span>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Summary Sidebar */}
-                <div className="space-y-6">
-                    <Card className="glass-card border-none overflow-hidden">
-                        <CardHeader className="bg-red-500 text-white">
-                            <CardTitle className="text-lg flex items-center">
-                                <TrendingDown className="mr-2 h-5 w-5" /> {t('page.expenses.summary')}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <div className="divide-y">
-                                {Object.entries(monthlySummary).length > 0 ? (
-                                    Object.entries(monthlySummary).map(([month, data]: [string, any]) => (
-                                        <div key={month} className="p-4 space-y-3">
-                                            <h4 className="font-bold text-primary">{month}</h4>
-                                            <div className="space-y-1 text-sm">
-                                                <div className="flex justify-between">
-                                                    <span>{t('page.expenses.rent')}</span>
-                                                    <span className="font-medium">{data.hyra} kr</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span>{t('page.expenses.breakfast')}</span>
-                                                    <span className="font-medium">{data.frukost} kr</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span>{t('page.expenses.bills')}</span>
-                                                    <span className="font-medium">{data.rakning} kr</span>
-                                                </div>
-                                                <div className="flex justify-between border-t pt-1 mt-1 text-base font-bold text-red-600">
-                                                    <span>{t('table.total')}</span>
-                                                    <span>{data.total} kr</span>
-                                                </div>
+                {/* Summary sidebar */}
+                <div>
+                    <div className="bg-card border border-border rounded-[14px] overflow-hidden shadow-sm">
+                        <div className="px-5 py-4 border-b border-border font-semibold text-sm flex items-center gap-2">
+                            <TrendingDown size={15} style={{ color: '#C0392B' }} />
+                            {t('page.expenses.summary')}
+                        </div>
+                        <div className="divide-y divide-border">
+                            {Object.entries(monthlySummary).length > 0 ? (
+                                Object.entries(monthlySummary).map(([month, data]: [string, any]) => (
+                                    <div key={month} className="p-4 space-y-2">
+                                        <div className="font-bold text-sm text-foreground">{month}</div>
+                                        {[
+                                            [t('page.expenses.rent'), data.hyra],
+                                            [t('page.expenses.breakfast'), data.frukost],
+                                            [t('page.expenses.bills'), data.rakning],
+                                            [t('page.expenses.other'), data.annat],
+                                        ].map(([label, val]) => (
+                                            <div key={label as string} className="flex justify-between text-sm">
+                                                <span className="text-muted-foreground">{label}</span>
+                                                <span className="font-medium">{(val as number).toLocaleString('sv-SE')} kr</span>
                                             </div>
+                                        ))}
+                                        <div className="flex justify-between text-sm font-bold pt-2 border-t border-border" style={{ color: '#C0392B' }}>
+                                            <span>{t('table.total')}</span>
+                                            <span>{data.total.toLocaleString('sv-SE')} kr</span>
                                         </div>
-                                    ))
-                                ) : (
-                                    <div className="p-6 text-center text-muted-foreground">{t('page.expenses.select_month')}</div>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="p-6 text-center text-muted-foreground text-sm">{t('page.expenses.select_month')}</div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {showForm && (
-                <ExpenseForm
-                    onClose={() => setShowForm(false)}
-                    onSuccess={() => {
-                        setShowForm(false)
-                        fetchItems()
-                    }}
-                />
+                <ExpenseForm supabase={supabase} t={t} language={language} onClose={() => setShowForm(false)} onSuccess={() => { setShowForm(false); fetchItems() }} />
             )}
         </div>
     )
 }
 
-function ExpenseForm({ onClose, onSuccess }: any) {
-    const supabase = createClient()
-    const { t } = useLanguage()
+function ExpenseForm({ supabase, t, language, onClose, onSuccess }: any) {
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState({
         manad: months[new Date().getMonth()],
-        vecka: 1,
-        hyra: 0,
-        frukost: 0,
-        rakning: 0,
-        annat: 0,
-        kommentar: "",
-        rapporterat_av: "",
-        datum: new Date().toISOString().split('T')[0]
+        vecka: 1, hyra: 0, frukost: 0, rakning: 0, annat: 0,
+        rapporterat_av: "", datum: new Date().toISOString().split('T')[0],
     })
+    const set = (k: string, v: any) => setData(d => ({ ...d, [k]: v }))
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!supabase) return
         setLoading(true)
-        const total = Number(data.hyra) + Number(data.frukost) + Number(data.rakning) + Number(data.annat)
+        const total = (Number(data.hyra) || 0) + (Number(data.frukost) || 0) + (Number(data.rakning) || 0) + (Number(data.annat) || 0)
         const { error } = await supabase.from('utgifter').insert([{ ...data, total }])
+        setLoading(false)
         if (error) alert(error.message)
         else onSuccess()
-        setLoading(false)
     }
 
     return (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <Card className="w-full max-w-lg glass-card text-card-foreground">
-                <CardHeader>
-                    <CardTitle>{t('page.expenses.new_title')}</CardTitle>
-                </CardHeader>
+        <div className="modal-overlay">
+            <div className="modal-content max-w-lg">
+                <div className="flex items-center justify-between p-6 border-b border-border">
+                    <h2 className="text-lg font-bold">{t('page.expenses.new_title')}</h2>
+                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary transition-colors"><X size={16} /></button>
+                </div>
                 <form onSubmit={handleSubmit}>
-                    <CardContent className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <label className="text-sm font-medium">{t('page.expenses.month')}</label>
-                            <select
-                                className="bg-background border rounded-md px-3 py-2 text-sm"
-                                value={data.manad}
-                                onChange={(e) => setData({ ...data, manad: e.target.value })}
-                            >
+                    <div className="p-6 grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-semibold">{t('page.expenses.month')}</label>
+                            <select className="input-premium" value={data.manad} onChange={(e) => set('manad', e.target.value)}>
                                 {months.map(m => <option key={m} value={m}>{m}</option>)}
                             </select>
                         </div>
-                        <div className="grid gap-2">
-                            <label className="text-sm font-medium">{t('page.expenses.week')}</label>
-                            <Input type="number" value={data.vecka} onChange={(e) => setData({ ...data, vecka: parseInt(e.target.value) })} />
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-semibold">{t('page.expenses.week')}</label>
+                            <input type="number" className="input-premium" value={data.vecka} onChange={(e) => set('vecka', Number(e.target.value) || 1)} />
                         </div>
-                        <div className="grid gap-2">
-                            <label className="text-sm font-medium">{t('page.expenses.rent')}</label>
-                            <Input type="number" value={data.hyra} onChange={(e) => setData({ ...data, hyra: parseInt(e.target.value) })} />
+                        {[
+                            [t('page.expenses.rent'), 'hyra'],
+                            [t('page.expenses.breakfast'), 'frukost'],
+                            [t('page.expenses.bills'), 'rakning'],
+                            [t('page.expenses.other'), 'annat'],
+                        ].map(([label, key]) => (
+                            <div key={key} className="space-y-1.5">
+                                <label className="text-sm font-semibold">{label} (kr)</label>
+                                <input type="number" className="input-premium" value={(data as any)[key]} onChange={(e) => set(key, Number(e.target.value) || 0)} />
+                            </div>
+                        ))}
+                        <div className="space-y-1.5 col-span-2">
+                            <label className="text-sm font-semibold">{t('page.expenses.reported_by')}</label>
+                            <input className="input-premium" value={data.rapporterat_av} onChange={(e) => set('rapporterat_av', e.target.value)} />
                         </div>
-                        <div className="grid gap-2">
-                            <label className="text-sm font-medium">{t('page.expenses.breakfast')}</label>
-                            <Input type="number" value={data.frukost} onChange={(e) => setData({ ...data, frukost: parseInt(e.target.value) })} />
+                        <div className="space-y-1.5 col-span-2">
+                            <label className="text-sm font-semibold">{t('page.expenses.date')}</label>
+                            <input type="date" className="input-premium" value={data.datum} onChange={(e) => set('datum', e.target.value)} />
                         </div>
-                        <div className="grid gap-2">
-                            <label className="text-sm font-medium">{t('page.expenses.bills')}</label>
-                            <Input type="number" value={data.rakning} onChange={(e) => setData({ ...data, rakning: parseInt(e.target.value) })} />
-                        </div>
-                        <div className="grid gap-2">
-                            <label className="text-sm font-medium">{t('page.expenses.other')}</label>
-                            <Input type="number" value={data.annat} onChange={(e) => setData({ ...data, annat: parseInt(e.target.value) })} />
-                        </div>
-                        <div className="grid gap-2 col-span-2">
-                            <label className="text-sm font-medium">{t('page.expenses.reported_by')}</label>
-                            <Input value={data.rapporterat_av} onChange={(e) => setData({ ...data, rapporterat_av: e.target.value })} />
-                        </div>
-                        <div className="grid gap-2 col-span-2">
-                            <label className="text-sm font-medium">{t('page.expenses.date')}</label>
-                            <Input type="date" value={data.datum} onChange={(e) => setData({ ...data, datum: e.target.value })} />
-                        </div>
-                    </CardContent>
-                    <div className="p-6 border-t flex justify-end gap-2">
-                        <Button type="button" variant="ghost" onClick={onClose}>{t('common.cancel')}</Button>
-                        <Button type="submit" variant="premium" disabled={loading}>{t('common.save')}</Button>
+                    </div>
+                    <div className="flex gap-3 p-6 pt-0">
+                        <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-[10px] text-sm font-semibold border border-border hover:bg-secondary transition-colors">{t('common.cancel')}</button>
+                        <button type="submit" disabled={loading} className="flex-1 py-2.5 rounded-[10px] text-sm font-semibold text-primary-foreground disabled:opacity-60" style={{ background: '#1A1A1A' }}>
+                            {loading ? t('common.loading') : t('common.save')}
+                        </button>
                     </div>
                 </form>
-            </Card>
+            </div>
         </div>
     )
 }

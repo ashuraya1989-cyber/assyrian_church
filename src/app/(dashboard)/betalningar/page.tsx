@@ -1,254 +1,342 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { createClient } from "@/utils/supabase/client"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import {
-    CreditCard,
-    Search,
-    CheckCircle2,
-    AlertCircle,
-    Clock,
-    PlusCircle,
-    RefreshCcw
+    CreditCard, Search, Plus, RefreshCcw, CheckCircle2,
+    AlertCircle, Clock, FileSpreadsheet, FileText, Mail, Bell
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { format, isAfter, isBefore, addDays, parseISO } from "date-fns"
-import { sv } from "date-fns/locale"
+import { format, isBefore, addDays, parseISO } from "date-fns"
+import { sv, enUS } from "date-fns/locale"
 import { PaymentForm } from "@/components/payment-form"
 import { useLanguage } from "@/components/language-provider"
-
-interface PaymentInfo {
-    id: string
-    familje_namn: string
-    total_manads_avgift: number
-    total_ars_avgift: number
-    summan: number
-    betalat_till_datum: string
-    betalat_via: string
-    betalnings_referens: string
-    familjer: {
-        make_namn: string
-        hustru_namn: string
-    }
-}
+import { exportToExcel, exportToPDF } from "@/lib/export"
+import { sendPaymentReminderAction } from "@/app/actions/email"
 
 export default function BetalningarPage() {
-    const supabase = createClient()
-    const { t } = useLanguage()
+    const supabase = useMemo(() => {
+        try { return createClient() } catch { return null }
+    }, [])
+    const { t, language } = useLanguage()
+    const locale = language === 'sv' ? sv : enUS
+
     const [payments, setPayments] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
-
     const [showForm, setShowForm] = useState(false)
     const [selectedPayment, setSelectedPayment] = useState<any>(null)
+    const [exporting, setExporting] = useState(false)
+    const [sendingReminder, setSendingReminder] = useState<string | null>(null)
+    const [reminderFeedback, setReminderFeedback] = useState<{ id: string; ok: boolean; msg: string } | null>(null)
 
     const fetchPayments = async () => {
+        if (!supabase) return
         setLoading(true)
-        // Fetch families and join with their latest payment
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from('familjer')
             .select(`
-        id,
-        familje_namn,
-        make_namn,
-        hustru_namn,
-        betalningar (
-          id,
-          total_manads_avgift,
-          total_ars_avgift,
-          summan,
-          betalat_till_datum,
-          betalat_via,
-          betalnings_referens,
-          created_at
-        ),
-        barn (
-          manads_avgift
-        )
-      `)
+                id, familje_namn, make_namn, hustru_namn, mail,
+                betalningar(id, total_manads_avgift, total_ars_avgift, summan, betalat_till_datum, betalat_via, betalnings_referens, created_at),
+                barn(manads_avgift)
+            `)
             .order('familje_namn', { ascending: true })
 
-        if (error) {
-            console.error('Error fetching payments:', error)
-        } else {
-            // Process data to get the latest payment and calculate total fees
-            const processed = data?.map((f: any) => {
-                const latestPayment = f.betalningar?.sort((a: any, b: any) =>
-                    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-                )[0]
-
-                // Calculate fees based on rules if no payment exists yet
-                const adultCount = (f.make_namn ? 1 : 0) + (f.hustru_namn ? 1 : 0)
-                const childFees = f.barn?.reduce((sum: number, b: any) => sum + (b.manads_avgift || 100), 0) || 0
-                const calcMonthly = (adultCount * 200) + childFees
-
-                return {
-                    id: f.id,
-                    familje_namn: f.familje_namn,
-                    make_namn: f.make_namn,
-                    hustru_namn: f.hustru_namn,
-                    monthly_fee: latestPayment?.total_manads_avgift || calcMonthly,
-                    annual_fee: latestPayment?.total_ars_avgift || (calcMonthly * 12),
-                    paid_sum: latestPayment?.summan || 0,
-                    paid_until: latestPayment?.betalat_till_datum,
-                    method: latestPayment?.betalat_via,
-                    ref: latestPayment?.betalnings_referens
-                }
-            })
-            setPayments(processed || [])
-        }
+        const processed = (data ?? []).map((f: any) => {
+            const latest = f.betalningar?.sort((a: any, b: any) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+            const adults = (f.make_namn ? 1 : 0) + (f.hustru_namn ? 1 : 0)
+            const childFees = f.barn?.reduce((s: number, b: any) => s + (b.manads_avgift ?? 100), 0) ?? 0
+            const calcMonthly = (adults * 200) + childFees
+            return {
+                id: f.id,
+                betalning_id: latest?.id ?? null,
+                familje_namn: f.familje_namn,
+                make_namn: f.make_namn,
+                hustru_namn: f.hustru_namn,
+                mail: f.mail ?? null,
+                monthly_fee: latest?.total_manads_avgift ?? calcMonthly,
+                annual_fee: latest?.total_ars_avgift ?? (calcMonthly * 12),
+                paid_sum: latest?.summan ?? 0,
+                paid_until: latest?.betalat_till_datum ?? null,
+                method: latest?.betalat_via ?? null,
+                ref: latest?.betalnings_referens ?? null,
+            }
+        })
+        setPayments(processed)
         setLoading(false)
     }
 
-    useEffect(() => {
-        fetchPayments()
-    }, [])
+    useEffect(() => { fetchPayments() }, [supabase])
 
     const getStatus = (paidUntil: string | null) => {
-        if (!paidUntil) return { label: t('status.unpaid'), color: "text-destructive bg-destructive/10", icon: AlertCircle }
-
+        if (!paidUntil) return { label: t('status.unpaid'), cls: 'badge-danger', icon: AlertCircle }
         const today = new Date()
-        const untilDate = parseISO(paidUntil)
-        const warningDate = addDays(today, 30)
-
-        if (isBefore(untilDate, today)) {
-            return { label: t('status.overdue'), color: "text-destructive bg-destructive/10", icon: AlertCircle }
-        } else if (isBefore(untilDate, warningDate)) {
-            return { label: t('status.soon_overdue'), color: "text-amber-600 bg-amber-50", icon: Clock }
-        } else {
-            return { label: t('status.up_to_date'), color: "text-green-600 bg-green-50", icon: CheckCircle2 }
-        }
+        const until = parseISO(paidUntil)
+        if (isBefore(until, today)) return { label: t('status.overdue'), cls: 'badge-danger', icon: AlertCircle }
+        if (isBefore(until, addDays(today, 30))) return { label: t('status.soon_overdue'), cls: 'badge-warning', icon: Clock }
+        return { label: t('status.up_to_date'), cls: 'badge-success', icon: CheckCircle2 }
     }
 
     const filteredPayments = payments.filter(p =>
-        p.familje_namn.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.make_namn.toLowerCase().includes(searchQuery.toLowerCase())
+        p.familje_namn?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.make_namn?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
     )
 
+    // Stats
+    const stats = useMemo(() => {
+        const overdue = payments.filter(p => {
+            if (!p.paid_until) return true
+            return isBefore(parseISO(p.paid_until), new Date())
+        }).length
+        const upToDate = payments.filter(p => {
+            if (!p.paid_until) return false
+            return !isBefore(parseISO(p.paid_until), new Date())
+        }).length
+        return { total: payments.length, overdue, upToDate }
+    }, [payments])
+
+    const handleSendReminder = async (p: any) => {
+        if (!p.mail) {
+            setReminderFeedback({ id: p.id, ok: false, msg: t('reminder.no_email') })
+            setTimeout(() => setReminderFeedback(null), 3000)
+            return
+        }
+        setSendingReminder(p.id)
+        const result = await sendPaymentReminderAction({
+            recipientEmail: p.mail,
+            familyName: p.familje_namn,
+            makeNamn: p.make_namn,
+            overdueDate: p.paid_until
+                ? format(parseISO(p.paid_until), 'd MMM yyyy', { locale })
+                : language === 'sv' ? 'Obetald' : 'Unpaid',
+            familyId: p.id,
+        })
+        setSendingReminder(null)
+        setReminderFeedback({
+            id: p.id,
+            ok: result.success,
+            msg: result.success ? t('reminder.sent') : (result.error ?? t('reminder.error')),
+        })
+        setTimeout(() => setReminderFeedback(null), 4000)
+    }
+
+    const handleExcelExport = async () => {
+        setExporting(true)
+        try {
+            const headers = [
+                language === 'sv' ? 'Familjenamn' : 'Family Name',
+                language === 'sv' ? 'Make' : 'Husband',
+                language === 'sv' ? 'Månadsavgift' : 'Monthly Fee',
+                language === 'sv' ? 'Årsavgift' : 'Annual Fee',
+                language === 'sv' ? 'Betalt belopp' : 'Paid Amount',
+                language === 'sv' ? 'Betalat till' : 'Paid Until',
+                language === 'sv' ? 'Betalsätt' : 'Method',
+                language === 'sv' ? 'Status' : 'Status',
+            ]
+            const rows = filteredPayments.map(p => {
+                const { label } = getStatus(p.paid_until)
+                return [
+                    p.familje_namn, p.make_namn,
+                    `${p.monthly_fee} kr`, `${p.annual_fee} kr`,
+                    `${p.paid_sum} kr`,
+                    p.paid_until ? format(parseISO(p.paid_until), 'yyyy-MM-dd') : '—',
+                    p.method ?? '—', label,
+                ]
+            })
+            await exportToExcel('Betalningar', language === 'sv' ? 'Betalningar' : 'Payments', headers, rows)
+        } finally { setExporting(false) }
+    }
+
+    const handlePDFExport = async () => {
+        setExporting(true)
+        try {
+            const headers = [
+                language === 'sv' ? 'Familjenamn' : 'Family Name',
+                language === 'sv' ? 'Månadsavgift' : 'Monthly Fee',
+                language === 'sv' ? 'Betalat till' : 'Paid Until',
+                language === 'sv' ? 'Status' : 'Status',
+            ]
+            const rows = filteredPayments.map(p => {
+                const { label } = getStatus(p.paid_until)
+                return [
+                    p.familje_namn,
+                    `${p.monthly_fee} kr`,
+                    p.paid_until ? format(parseISO(p.paid_until), 'yyyy-MM-dd') : '—',
+                    label,
+                ]
+            })
+            await exportToPDF('Betalningar', language === 'sv' ? 'Betalningar' : 'Payments', headers, rows)
+        } finally { setExporting(false) }
+    }
+
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            {/* Header */}
+            <div className="page-header flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{t('page.payments.title')}</h1>
-                    <p className="text-muted-foreground">{t('page.payments.desc')}</p>
+                    <h1 className="text-2xl font-bold tracking-tight">{t('page.payments.title')}</h1>
+                    <p className="text-muted-foreground text-sm mt-1">{t('page.payments.desc')}</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="icon" onClick={fetchPayments} disabled={loading}>
-                        <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
-                    </Button>
-                    <Button variant="premium" onClick={() => { setSelectedPayment(null); setShowForm(true); }}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> {t('page.payments.register')}
-                    </Button>
+                <div className="flex flex-wrap gap-2">
+                    <button onClick={handleExcelExport} disabled={exporting || loading}
+                        className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-sm font-semibold border border-border hover:bg-secondary transition-colors disabled:opacity-50">
+                        <FileSpreadsheet size={15} style={{ color: '#2C7A4B' }} /> Excel
+                    </button>
+                    <button onClick={handlePDFExport} disabled={exporting || loading}
+                        className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-sm font-semibold border border-border hover:bg-secondary transition-colors disabled:opacity-50">
+                        <FileText size={15} style={{ color: '#C0392B' }} /> PDF
+                    </button>
+                    <button onClick={fetchPayments} disabled={loading}
+                        className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-sm font-semibold border border-border hover:bg-secondary transition-colors">
+                        <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />
+                    </button>
+                    <button
+                        onClick={() => { setSelectedPayment(null); setShowForm(true) }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-[10px] text-sm font-semibold text-primary-foreground"
+                        style={{ background: '#1A1A1A' }}>
+                        <Plus size={15} />
+                        {t('page.payments.register')}
+                    </button>
+                </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="stat-card">
+                    <div className="stat-label">{language === 'sv' ? 'Totalt' : 'Total'}</div>
+                    <div className="stat-value">{stats.total}</div>
+                </div>
+                <div className="stat-card" style={{ borderLeft: '3px solid #C0392B' }}>
+                    <div className="stat-label">{t('status.overdue')}</div>
+                    <div className="stat-value" style={{ color: '#C0392B' }}>{stats.overdue}</div>
+                </div>
+                <div className="stat-card" style={{ borderLeft: '3px solid #2C7A4B' }}>
+                    <div className="stat-label">{t('status.up_to_date')}</div>
+                    <div className="stat-value" style={{ color: '#2C7A4B' }}>{stats.upToDate}</div>
+                </div>
+            </div>
+
+            {/* Search */}
+            <div className="relative mb-5">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                    type="text"
+                    placeholder={t('page.payments.search')}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="input-premium pl-9"
+                />
+            </div>
+
+            {/* Table */}
+            <div className="bg-card border border-border rounded-[14px] overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                    <table className="premium-table">
+                        <thead>
+                            <tr>
+                                <th>{t('table.family')}</th>
+                                <th>{t('table.monthly_fee')}</th>
+                                <th>{t('table.yearly_fee')}</th>
+                                <th>{t('table.paid_until')}</th>
+                                <th>{t('table.status')}</th>
+                                <th className="text-right">{t('table.actions')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                Array.from({ length: 4 }).map((_, i) => (
+                                    <tr key={i}>
+                                        {Array.from({ length: 6 }).map((_, j) => (
+                                            <td key={j}><div className="h-4 bg-secondary rounded animate-pulse w-3/4" /></td>
+                                        ))}
+                                    </tr>
+                                ))
+                            ) : filteredPayments.length > 0 ? (
+                                filteredPayments.map(p => {
+                                    const { label, cls, icon: Icon } = getStatus(p.paid_until)
+                                    const isOverdue = cls === 'badge-danger'
+                                    const fb = reminderFeedback?.id === p.id ? reminderFeedback : null
+                                    return (
+                                        <tr key={p.id}>
+                                            <td>
+                                                <div className="font-semibold">{p.familje_namn}</div>
+                                                <div className="text-xs text-muted-foreground">{p.make_namn}</div>
+                                            </td>
+                                            <td>{p.monthly_fee.toLocaleString('sv-SE')} kr</td>
+                                            <td>{p.annual_fee.toLocaleString('sv-SE')} kr</td>
+                                            <td className="text-sm">
+                                                {p.paid_until
+                                                    ? format(parseISO(p.paid_until), 'd MMM yyyy', { locale })
+                                                    : '—'}
+                                            </td>
+                                            <td>
+                                                <span className={`badge ${cls}`}>
+                                                    <Icon size={11} className="inline mr-1" />
+                                                    {label}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div className="flex justify-end items-center gap-1.5">
+                                                    {fb && (
+                                                        <span className={`text-xs font-medium ${fb.ok ? 'text-green-600' : 'text-red-600'}`}>
+                                                            {fb.msg}
+                                                        </span>
+                                                    )}
+                                                    {isOverdue && (
+                                                        <button
+                                                            onClick={() => handleSendReminder(p)}
+                                                            disabled={sendingReminder === p.id}
+                                                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-border hover:bg-secondary transition-colors disabled:opacity-50"
+                                                            title={t('action.send_reminder')}
+                                                        >
+                                                            {sendingReminder === p.id
+                                                                ? <RefreshCcw size={12} className="animate-spin" />
+                                                                : <Bell size={12} />}
+                                                            {language === 'sv' ? 'Påminnelse' : 'Reminder'}
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedPayment({
+                                                                familj_id: p.id,
+                                                                total_manads_avgift: p.monthly_fee,
+                                                                total_ars_avgift: p.annual_fee,
+                                                                summan: p.monthly_fee,
+                                                            })
+                                                            setShowForm(true)
+                                                        }}
+                                                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-primary-foreground"
+                                                        style={{ background: '#1A1A1A' }}
+                                                    >
+                                                        <CreditCard size={12} />
+                                                        {t('action.manage')}
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )
+                                })
+                            ) : (
+                                <tr>
+                                    <td colSpan={6} className="text-center py-16 text-muted-foreground">
+                                        <CreditCard size={40} className="mx-auto mb-3 opacity-20" />
+                                        {t('table.empty_records')}
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
             {showForm && (
                 <PaymentForm
                     initialData={selectedPayment}
-                    onClose={() => {
-                        setShowForm(false)
-                        setSelectedPayment(null)
-                    }}
-                    onSuccess={() => {
-                        setShowForm(false)
-                        setSelectedPayment(null)
-                        fetchPayments()
-                    }}
+                    onClose={() => { setShowForm(false); setSelectedPayment(null) }}
+                    onSuccess={() => { setShowForm(false); setSelectedPayment(null); fetchPayments() }}
                 />
             )}
-
-            <Card className="glass-card border-none">
-                <CardHeader className="p-4 md:p-6 pb-0 md:pb-0">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder={t('page.payments.search')}
-                            className="pl-10 bg-background/50 border-white/20"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-                </CardHeader>
-                <CardContent className="p-0 pt-4 md:pt-6">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="text-xs uppercase bg-muted/50 text-muted-foreground border-y">
-                                <tr>
-                                    <th className="px-6 py-3 font-semibold">{t('table.family')}</th>
-                                    <th className="px-6 py-3 font-semibold">{t('table.monthly_fee')}</th>
-                                    <th className="px-6 py-3 font-semibold">{t('table.yearly_fee')}</th>
-                                    <th className="px-6 py-3 font-semibold">{t('table.paid_until')}</th>
-                                    <th className="px-6 py-3 font-semibold">{t('table.status')}</th>
-                                    <th className="px-6 py-3 font-semibold text-right">{t('table.actions')}</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                                {loading ? (
-                                    Array.from({ length: 3 }).map((_, i) => (
-                                        <tr key={i} className="animate-pulse">
-                                            <td className="px-6 py-4"><div className="h-4 bg-muted rounded w-32"></div></td>
-                                            <td className="px-6 py-4"><div className="h-4 bg-muted rounded w-20"></div></td>
-                                            <td className="px-6 py-4"><div className="h-4 bg-muted rounded w-20"></div></td>
-                                            <td className="px-6 py-4"><div className="h-4 bg-muted rounded w-24"></div></td>
-                                            <td className="px-6 py-4"><div className="h-6 bg-muted rounded w-24"></div></td>
-                                            <td className="px-6 py-4 text-right"><div className="h-8 bg-muted rounded w-8 ml-auto"></div></td>
-                                        </tr>
-                                    ))
-                                ) : filteredPayments.length > 0 ? (
-                                    filteredPayments.map((p) => {
-                                        const status = getStatus(p.paid_until)
-                                        const StatusIcon = status.icon
-                                        return (
-                                            <tr key={p.id} className="hover:bg-accent/50 transition-colors">
-                                                <td className="px-6 py-4 font-medium">{p.familje_namn}</td>
-                                                <td className="px-6 py-4">{p.monthly_fee} kr</td>
-                                                <td className="px-6 py-4">{p.annual_fee} kr</td>
-                                                <td className="px-6 py-4 text-muted-foreground">
-                                                    {p.paid_until ? format(parseISO(p.paid_until), 'yyyy-MM-dd') : "-"}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium gap-1", status.color)}>
-                                                        <StatusIcon className="h-3 w-3" />
-                                                        {status.label}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    {status.label !== t('status.up_to_date') && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => {
-                                                                setSelectedPayment({
-                                                                    familj_id: p.id,
-                                                                    total_manads_avgift: p.monthly_fee,
-                                                                    total_ars_avgift: p.annual_fee,
-                                                                    summan: p.monthly_fee // default to paying monthly sum for prepopulation
-                                                                })
-                                                                setShowForm(true)
-                                                            }}
-                                                        >
-                                                            {t('action.manage')}
-                                                        </Button>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        )
-                                    })
-                                ) : (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                                            {t('table.empty_records')}
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </CardContent>
-            </Card>
         </div>
     )
 }

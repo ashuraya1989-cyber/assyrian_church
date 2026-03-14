@@ -12,7 +12,11 @@ import {
     LogOut,
     LayoutDashboard,
     Settings,
-    UserCog
+    UserCog,
+    ScrollText,
+    X,
+    Menu,
+    Globe,
 } from "lucide-react"
 import { createClient } from "@/utils/supabase/client"
 import { useLanguage } from "@/components/language-provider"
@@ -20,123 +24,216 @@ import { useEffect, useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 
 const navItems = [
-    { key: "nav.dashboard", href: "/", icon: LayoutDashboard },
-    { key: "nav.register", href: "/register", icon: Users, permission: "register" },
-    { key: "nav.payments", href: "/betalningar", icon: CreditCard, permission: "payments" },
-    { key: "nav.expenses", href: "/utgifter", icon: TrendingDown, permission: "expenses" },
-    { key: "nav.income", href: "/intakter", icon: TrendingUp, permission: "income" },
-    { key: "nav.stats", href: "/statistik", icon: BarChart3, permission: "stats" },
-    { key: "nav.settings", href: "/installningar", icon: Settings, permission: "settings" },
-    { key: "nav.users", href: "/anvandare", icon: UserCog, permission: "users" },
+    { key: "nav.dashboard",  href: "/",            icon: LayoutDashboard },
+    { key: "nav.register",   href: "/register",     icon: Users,       permission: "register" },
+    { key: "nav.payments",   href: "/betalningar",  icon: CreditCard,  permission: "payments" },
+    { key: "nav.expenses",   href: "/utgifter",     icon: TrendingDown,permission: "expenses" },
+    { key: "nav.income",     href: "/intakter",     icon: TrendingUp,  permission: "income" },
+    { key: "nav.stats",      href: "/statistik",    icon: BarChart3,   permission: "stats" },
+    { key: "nav.settings",   href: "/installningar",icon: Settings,    permission: "settings" },
+    { key: "nav.users",      href: "/anvandare",    icon: UserCog,     permission: "users" },
+    { key: "nav.logs",       href: "/loggar",       icon: ScrollText,  permission: "users" },
 ]
 
-export function Sidebar() {
-    const supabase = useMemo(() => createClient(), [])
+function SidebarContent({ onClose }: { onClose?: () => void }) {
+    const supabase = useMemo(() => {
+        try { return createClient() } catch { return null }
+    }, [])
     const pathname = usePathname()
     const router = useRouter()
     const { language, setLanguage, t } = useLanguage()
-    const [adminTitle, setAdminTitle] = useState<string>("Medlemsregister")
+    const [adminTitle, setAdminTitle]   = useState("Kyrkoregistret")
     const [adminLogoUrl, setAdminLogoUrl] = useState<string | null>(null)
-    const [adminLogoSize, setAdminLogoSize] = useState<number>(32)
-    const [userRole, setUserRole] = useState<string>("user")
+    const [adminLogoSize, setAdminLogoSize] = useState(32)
+    const [userRole, setUserRole]             = useState("user")
     const [userPermissions, setUserPermissions] = useState<string[]>([])
+    const [userEmail, setUserEmail] = useState("")
 
     useEffect(() => {
+        if (!supabase) return
+
         const fetchSettings = async () => {
-            const { data } = await supabase.from('app_settings').select('admin_title, admin_logo_url, admin_logo_size').eq('id', 1).single()
-            if (data) {
-                if (data.admin_title) setAdminTitle(data.admin_title)
-                if (data.admin_logo_url) setAdminLogoUrl(data.admin_logo_url)
-                if (data.admin_logo_size) setAdminLogoSize(data.admin_logo_size)
-            }
+            try {
+                const { data } = await supabase
+                    .from('app_settings')
+                    .select('admin_title, admin_logo_url, admin_logo_size')
+                    .eq('id', 1)
+                    .single()
+                if (data?.admin_title) setAdminTitle(data.admin_title)
+                if (data?.admin_logo_url) setAdminLogoUrl(data.admin_logo_url)
+                if (data?.admin_logo_size) setAdminLogoSize(data.admin_logo_size)
+            } catch { /* ignore */ }
         }
 
         const fetchUserProfile = async () => {
-            const { data: { session } } = await supabase.auth.getSession()
-            if (session?.user?.id) {
-                const { data } = await supabase.from('user_profiles').select('role, permissions').eq('id', session.user.id).single()
-                if (data) {
-                    setUserRole(data.role)
-                    setUserPermissions(data.permissions || [])
+            try {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (user?.id) {
+                    setUserEmail(user.email ?? "")
+                    const { data } = await supabase
+                        .from('user_profiles')
+                        .select('role, permissions')
+                        .eq('id', user.id)
+                        .single()
+                    if (data) {
+                        setUserRole(data.role ?? "user")
+                        setUserPermissions(data.permissions ?? [])
+                    }
                 }
-            }
+            } catch { /* ignore */ }
         }
 
         fetchSettings()
         fetchUserProfile()
-    }, [])
+    }, [supabase])
 
     const handleLogout = async () => {
-        await supabase.auth.signOut()
+        if (supabase) await supabase.auth.signOut()
         router.push("/login")
     }
 
-    return (
-        <div className="flex h-full flex-col bg-card border-r shadow-sm">
-            <div className="p-6 flex items-center gap-3">
-                {adminLogoUrl && (
-                    <img
-                        src={adminLogoUrl}
-                        alt="Logo"
-                        style={{ height: `${adminLogoSize}px` }}
-                        className="max-w-[120px] object-contain"
-                    />
-                )}
-                <h2 className="text-xl font-bold tracking-tight premium-gradient bg-clip-text text-transparent truncate">
-                    {adminTitle}
-                </h2>
-            </div>
-            <nav className="flex-1 space-y-1 px-3">
-                {navItems.map((item) => {
-                    // Check permissions
-                    if (item.permission) {
-                        if (userRole === 'user') {
-                            if (!userPermissions.includes(item.permission)) return null;
-                            if (item.permission === 'settings' || item.permission === 'users') return null;
-                        }
-                    }
+    const isAllowed = (item: typeof navItems[0]) => {
+        if (!item.permission) return true
+        if (userRole === 'superadmin' || userRole === 'admin') return true
+        if (item.permission === 'settings' || item.permission === 'users') return false
+        return userPermissions.includes(item.permission)
+    }
 
+    return (
+        <div className="flex h-full flex-col" style={{ background: '#1C1C1C' }}>
+            {/* Header */}
+            <div className="px-5 py-5 flex items-center justify-between border-b" style={{ borderColor: '#2E2E2E' }}>
+                <div className="flex items-center gap-3 min-w-0">
+                    {adminLogoUrl ? (
+                        <img src={adminLogoUrl} alt="Logo"
+                            style={{ height: `${adminLogoSize}px`, maxWidth: '100px', objectFit: 'contain' }} />
+                    ) : (
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ background: 'linear-gradient(135deg, #C9A84C 0%, #8B6914 100%)' }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                                <path d="M2 17l10 5 10-5" />
+                                <path d="M2 12l10 5 10-5" />
+                            </svg>
+                        </div>
+                    )}
+                    <span className="font-bold text-sm truncate" style={{ color: '#F0EBE0' }}>
+                        {adminTitle}
+                    </span>
+                </div>
+                {onClose && (
+                    <button onClick={onClose} className="p-1 rounded-md hover:bg-white/10 transition-colors" aria-label="Stäng meny">
+                        <X size={18} style={{ color: '#B8AFA0' }} />
+                    </button>
+                )}
+            </div>
+
+            {/* Nav items */}
+            <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+                {navItems.map((item) => {
+                    if (!isAllowed(item)) return null
                     const Icon = item.icon
-                    // Exact match for all routes to avoid false positives
-                    const isActive = pathname === item.href
+                    const isActive = item.href === '/'
+                        ? pathname === '/'
+                        : pathname.startsWith(item.href)
 
                     return (
                         <Link
                             key={item.key}
                             href={item.href}
+                            onClick={onClose}
                             className={cn(
-                                "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all",
-                                isActive
-                                    ? "bg-primary text-primary-foreground premium-gradient"
-                                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                                "sidebar-item",
+                                isActive && "active"
                             )}
                         >
-                            <Icon className={cn("mr-3 h-5 w-5", isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-accent-foreground")} />
-                            {t(item.key)}
+                            <Icon size={17} />
+                            <span>{t(item.key)}</span>
                         </Link>
                     )
                 })}
             </nav>
-            <div className="p-4 border-t space-y-4">
-                <div className="flex items-center justify-between px-3">
-                    <span className="text-sm font-medium text-muted-foreground">Språk / Language</span>
+
+            {/* Footer */}
+            <div className="px-3 pb-4 pt-2 border-t space-y-2" style={{ borderColor: '#2E2E2E' }}>
+                {/* User badge */}
+                {userEmail && (
+                    <div className="px-3 py-2 rounded-[10px] mb-2" style={{ background: '#2A2A2A' }}>
+                        <div className="text-xs font-medium truncate" style={{ color: '#C9A84C' }}>
+                            {userRole.toUpperCase()}
+                        </div>
+                        <div className="text-xs truncate mt-0.5" style={{ color: '#8A8178' }}>
+                            {userEmail}
+                        </div>
+                    </div>
+                )}
+
+                {/* Language selector */}
+                <div className="flex items-center gap-2 px-3 py-2 rounded-[10px]" style={{ background: '#2A2A2A' }}>
+                    <Globe size={14} style={{ color: '#B8AFA0', flexShrink: 0 }} />
                     <select
-                        className="bg-transparent text-sm border border-border rounded px-2 py-1 cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
+                        className="bg-transparent text-xs flex-1 cursor-pointer focus:outline-none"
+                        style={{ color: '#B8AFA0' }}
                         value={language}
                         onChange={(e) => setLanguage(e.target.value as 'sv' | 'en')}
+                        aria-label="Välj språk"
                     >
-                        <option value="sv">Svenska</option>
-                        <option value="en">English</option>
+                        <option value="sv" style={{ background: '#2A2A2A' }}>Svenska</option>
+                        <option value="en" style={{ background: '#2A2A2A' }}>English</option>
                     </select>
                 </div>
+
+                {/* Logout */}
                 <button
                     onClick={handleLogout}
-                    className="flex w-full items-center px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-md transition-all"
+                    className="flex w-full items-center gap-3 px-3 py-2.5 rounded-[10px] text-sm font-medium transition-all"
+                    style={{ color: '#E07070' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#3A1A1A')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
-                    <LogOut className="mr-3 h-5 w-5" />
+                    <LogOut size={16} />
                     {t('nav.logout')}
                 </button>
             </div>
         </div>
+    )
+}
+
+export function Sidebar() {
+    return <SidebarContent />
+}
+
+export function MobileSidebar() {
+    const [open, setOpen] = useState(false)
+
+    return (
+        <>
+            {/* Hamburger button */}
+            <button
+                onClick={() => setOpen(true)}
+                className="fixed top-4 left-4 z-50 p-2.5 rounded-xl md:hidden"
+                style={{ background: '#1C1C1C', color: '#F0EBE0' }}
+                aria-label="Öppna meny"
+            >
+                <Menu size={20} />
+            </button>
+
+            {/* Backdrop */}
+            {open && (
+                <div
+                    className="fixed inset-0 z-40 md:hidden"
+                    style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+                    onClick={() => setOpen(false)}
+                />
+            )}
+
+            {/* Drawer */}
+            <div
+                className="fixed inset-y-0 left-0 z-50 w-64 md:hidden transition-transform duration-300"
+                style={{ transform: open ? 'translateX(0)' : 'translateX(-100%)' }}
+            >
+                <SidebarContent onClose={() => setOpen(false)} />
+            </div>
+        </>
     )
 }

@@ -1,361 +1,449 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { createClient } from "@/utils/supabase/client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-    Users,
-    Search,
-    Plus,
-    Edit2,
-    Trash2,
-    ChevronRight,
-    UserPlus,
-    RefreshCcw,
-    X
+    Users, Search, Plus, Edit2, Trash2, ChevronRight,
+    RefreshCcw, X, FileSpreadsheet, FileText, Download
 } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { FamilyForm } from "@/components/family-form"
 import { useLanguage } from "@/components/language-provider"
+import { exportToExcel, exportToPDF } from "@/lib/export"
 
 interface Family {
     id: string
     familje_namn: string
     make_namn: string
-    hustru_namn: string
-    mobil_nummer: string
-    mail: string
-    adress: string
-    ort: string
-    post_kod: string
-    land: string
-    make_personnummer: string
+    hustru_namn: string | null
+    mobil_nummer: string | null
+    mail: string | null
+    adress: string | null
+    ort: string | null
+    post_kod: string | null
+    land: string | null
+    make_personnummer: string | null
     make_manads_avgift: number
-    hustru_personnummer: string
+    hustru_personnummer: string | null
     hustru_manads_avgift: number
     created_at: string
 }
 
-interface FullFamilyData extends Family {
-    children: any[]
-}
+interface FullFamily extends Family { children: any[] }
 
 export default function RegisterPage() {
-    const supabase = createClient()
-    const { t } = useLanguage()
+    const supabase = useMemo(() => {
+        try { return createClient() } catch { return null }
+    }, [])
+    const { t, language } = useLanguage()
+
     const [families, setFamilies] = useState<Family[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
     const [showForm, setShowForm] = useState(false)
-
-    // Modal & Action states
-    const [selectedFamily, setSelectedFamily] = useState<FullFamilyData | null>(null)
+    const [selectedFamily, setSelectedFamily] = useState<FullFamily | null>(null)
     const [viewMode, setViewMode] = useState(false)
     const [deleteMode, setDeleteMode] = useState(false)
     const [editMode, setEditMode] = useState(false)
     const [actionLoading, setActionLoading] = useState(false)
+    const [exporting, setExporting] = useState(false)
 
     const fetchFamilies = async () => {
+        if (!supabase) return
         setLoading(true)
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from('familjer')
             .select('*')
             .order('familje_namn', { ascending: true })
-
-        if (error) {
-            console.error('Error fetching families:', error)
-        } else {
-            setFamilies(data || [])
-        }
+        setFamilies(data ?? [])
         setLoading(false)
     }
 
-    const fetchFamilyDetails = async (id: string) => {
+    const fetchFamilyDetails = async (id: string): Promise<FullFamily | null> => {
+        if (!supabase) return null
         setActionLoading(true)
         try {
-            const { data: familyObj, error: fError } = await supabase
-                .from('familjer')
-                .select('*')
-                .eq('id', id)
-                .single()
-
-            const { data: childrenObj, error: cError } = await supabase
-                .from('barn')
-                .select('*')
-                .eq('familj_id', id)
-                .order('ordning', { ascending: true })
-
+            const [{ data: fam }, { data: children }] = await Promise.all([
+                supabase.from('familjer').select('*').eq('id', id).single(),
+                supabase.from('barn').select('*').eq('familj_id', id).order('ordning'),
+            ])
+            return fam ? { ...fam, children: children ?? [] } : null
+        } finally {
             setActionLoading(false)
-
-            if (fError) {
-                console.error('Error fetching family details:', fError)
-                alert(`Kunde inte hämta detaljer (databasfel): ${fError.message || JSON.stringify(fError)}`)
-                return null
-            }
-            if (cError) {
-                console.error('Error fetching children:', cError)
-            }
-
-            return { ...familyObj, children: childrenObj || [] }
-        } catch (e: any) {
-            setActionLoading(false)
-            console.error('Fetch exception:', e)
-            alert(`Ett oväntat fel uppstod när familjen skulle hämtas: ${e?.message || 'Okänt fel'}`)
-            return null
-        }
-    }
-
-    const handleView = async (id: string) => {
-        const details = await fetchFamilyDetails(id)
-        if (details) {
-            setSelectedFamily(details)
-            setViewMode(true)
         }
     }
 
     const handleEdit = async (id: string) => {
-        const details = await fetchFamilyDetails(id)
-        if (details) {
-            setSelectedFamily(details)
-            setEditMode(true)
-        } else {
-            alert("Misslyckades att ladda familjens data för redigering. Kolla din internetuppkoppling och behörighet.")
-        }
+        const d = await fetchFamilyDetails(id)
+        if (d) { setSelectedFamily(d); setEditMode(true) }
     }
 
-    const handleDeleteClick = (family: Family) => {
-        setSelectedFamily({ ...family, children: [] })
+    const handleView = async (id: string) => {
+        const d = await fetchFamilyDetails(id)
+        if (d) { setSelectedFamily(d); setViewMode(true) }
+    }
+
+    const handleDeleteClick = (f: Family) => {
+        setSelectedFamily({ ...f, children: [] })
         setDeleteMode(true)
     }
 
     const confirmDelete = async () => {
-        if (!selectedFamily) return
+        if (!selectedFamily || !supabase) return
         setActionLoading(true)
-        const { error } = await supabase
-            .from('familjer')
-            .delete()
-            .eq('id', selectedFamily.id)
-
+        await supabase.from('familjer').delete().eq('id', selectedFamily.id)
         setActionLoading(false)
-
-        if (error) {
-            console.error('Error deleting family:', error)
-            alert("Kunde inte radera familjen.")
-        } else {
-            setDeleteMode(false)
-            setSelectedFamily(null)
-            fetchFamilies()
-        }
+        setDeleteMode(false)
+        setSelectedFamily(null)
+        fetchFamilies()
     }
 
-    useEffect(() => {
-        fetchFamilies()
-    }, [])
+    useEffect(() => { fetchFamilies() }, [supabase])
 
     const filteredFamilies = families.filter(f =>
         f.familje_namn.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.make_namn.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (f.hustru_namn && f.hustru_namn.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        f.ort?.toLowerCase().includes(searchQuery.toLowerCase())
+        (f.make_namn?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+        (f.hustru_namn?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+        (f.ort?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
     )
 
+    const handleExcelExport = async () => {
+        setExporting(true)
+        try {
+            const headers = [
+                language === 'sv' ? 'Familjenamn' : 'Family Name',
+                language === 'sv' ? 'Make' : 'Husband',
+                language === 'sv' ? 'Hustru' : 'Wife',
+                language === 'sv' ? 'Mobil' : 'Mobile',
+                'E-post',
+                language === 'sv' ? 'Adress' : 'Address',
+                language === 'sv' ? 'Ort' : 'City',
+                language === 'sv' ? 'Postnummer' : 'Zip',
+                language === 'sv' ? 'Land' : 'Country',
+                language === 'sv' ? 'Månadsavgift Make' : 'Monthly Fee Husband',
+                language === 'sv' ? 'Månadsavgift Hustru' : 'Monthly Fee Wife',
+            ]
+            const rows = families.map(f => [
+                f.familje_namn, f.make_namn, f.hustru_namn ?? '',
+                f.mobil_nummer ?? '', f.mail ?? '',
+                f.adress ?? '', f.ort ?? '', f.post_kod ?? '', f.land ?? 'Sverige',
+                f.make_manads_avgift, f.hustru_manads_avgift,
+            ])
+            await exportToExcel('Familjeregister', language === 'sv' ? 'Familjer' : 'Families', headers, rows)
+        } finally { setExporting(false) }
+    }
+
+    const handlePDFExport = async () => {
+        setExporting(true)
+        try {
+            const headers = [
+                language === 'sv' ? 'Familjenamn' : 'Family Name',
+                language === 'sv' ? 'Make' : 'Husband',
+                language === 'sv' ? 'Hustru' : 'Wife',
+                language === 'sv' ? 'Mobil' : 'Mobile',
+                'E-post',
+                language === 'sv' ? 'Ort' : 'City',
+            ]
+            const rows = families.map(f => [
+                f.familje_namn, f.make_namn, f.hustru_namn ?? '—',
+                f.mobil_nummer ?? '—', f.mail ?? '—', f.ort ?? '—',
+            ])
+            await exportToPDF(
+                'Familjeregister',
+                language === 'sv' ? 'Familjeregister' : 'Family Registry',
+                headers, rows
+            )
+        } finally { setExporting(false) }
+    }
+
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            {/* Header */}
+            <div className="page-header flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{t('page.register.title')}</h1>
-                    <p className="text-muted-foreground">{t('page.register.desc')}</p>
+                    <h1 className="text-2xl font-bold tracking-tight">{t('page.register.title')}</h1>
+                    <p className="text-muted-foreground text-sm mt-1">{t('page.register.desc')}</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="icon" onClick={fetchFamilies} disabled={loading}>
-                        <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
-                    </Button>
-                    <Button variant="premium" onClick={() => setShowForm(true)}>
-                        <UserPlus className="mr-2 h-4 w-4" /> {t('page.register.add')}
-                    </Button>
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={handleExcelExport}
+                        disabled={exporting || loading}
+                        className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-sm font-semibold border border-border hover:bg-secondary transition-colors disabled:opacity-50"
+                        title={t('common.export_excel')}
+                    >
+                        <FileSpreadsheet size={15} style={{ color: '#2C7A4B' }} />
+                        Excel
+                    </button>
+                    <button
+                        onClick={handlePDFExport}
+                        disabled={exporting || loading}
+                        className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-sm font-semibold border border-border hover:bg-secondary transition-colors disabled:opacity-50"
+                        title={t('common.export_pdf')}
+                    >
+                        <FileText size={15} style={{ color: '#C0392B' }} />
+                        PDF
+                    </button>
+                    <button
+                        onClick={fetchFamilies}
+                        disabled={loading}
+                        className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-sm font-semibold border border-border hover:bg-secondary transition-colors"
+                        aria-label="Uppdatera"
+                    >
+                        <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />
+                    </button>
+                    <button
+                        onClick={() => setShowForm(true)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-[10px] text-sm font-semibold text-primary-foreground"
+                        style={{ background: '#1A1A1A' }}
+                    >
+                        <Plus size={15} />
+                        {t('page.register.add')}
+                    </button>
                 </div>
             </div>
 
+            {/* Search */}
+            <div className="relative mb-5">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                    type="text"
+                    placeholder={t('page.register.search')}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="input-premium pl-9"
+                />
+            </div>
+
+            {/* Table */}
+            <div className="bg-card border border-border rounded-[14px] overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                    <table className="premium-table">
+                        <thead>
+                            <tr>
+                                <th>{t('table.family_name')}</th>
+                                <th>{t('table.parents')}</th>
+                                <th>{t('table.mobile')}</th>
+                                <th>{t('table.city')}</th>
+                                <th className="text-right">{t('table.actions')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                Array.from({ length: 4 }).map((_, i) => (
+                                    <tr key={i}>
+                                        {Array.from({ length: 5 }).map((_, j) => (
+                                            <td key={j}>
+                                                <div className="h-4 bg-secondary rounded animate-pulse" style={{ width: j === 4 ? 64 : '80%' }} />
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))
+                            ) : filteredFamilies.length > 0 ? (
+                                filteredFamilies.map(f => (
+                                    <tr key={f.id}>
+                                        <td className="font-semibold">{f.familje_namn}</td>
+                                        <td>
+                                            <div>{f.make_namn}</div>
+                                            {f.hustru_namn && (
+                                                <div className="text-xs text-muted-foreground">{f.hustru_namn}</div>
+                                            )}
+                                        </td>
+                                        <td className="text-muted-foreground">{f.mobil_nummer ?? '—'}</td>
+                                        <td>{f.ort ?? '—'}</td>
+                                        <td>
+                                            <div className="flex justify-end gap-1">
+                                                <button
+                                                    onClick={() => handleEdit(f.id)}
+                                                    className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
+                                                    aria-label={t('common.edit')}
+                                                >
+                                                    <Edit2 size={14} style={{ color: '#C9A84C' }} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteClick(f)}
+                                                    className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
+                                                    aria-label={t('common.delete')}
+                                                >
+                                                    <Trash2 size={14} style={{ color: '#C0392B' }} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleView(f.id)}
+                                                    className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
+                                                    aria-label={t('common.view')}
+                                                >
+                                                    <ChevronRight size={14} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={5} className="text-center py-16 text-muted-foreground">
+                                        <Users size={40} className="mx-auto mb-3 opacity-20" />
+                                        {searchQuery ? t('table.empty_search') : t('table.empty_register')}
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                {!loading && filteredFamilies.length > 0 && (
+                    <div className="px-4 py-3 border-t border-border bg-secondary/30">
+                        <p className="text-xs text-muted-foreground">
+                            {language === 'sv'
+                                ? `${filteredFamilies.length} av ${families.length} familjer`
+                                : `${filteredFamilies.length} of ${families.length} families`}
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            {/* Add form */}
             {showForm && (
                 <FamilyForm
                     onClose={() => setShowForm(false)}
-                    onSuccess={() => {
-                        setShowForm(false)
-                        fetchFamilies()
-                    }}
+                    onSuccess={() => { setShowForm(false); fetchFamilies() }}
                 />
             )}
 
-            <Card className="glass-card border-none">
-                <CardHeader className="p-4 md:p-6 pb-0 md:pb-0">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder={t('page.register.search')}
-                            className="pl-10 bg-background/50 border-white/20"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-                </CardHeader>
-                <CardContent className="p-0 pt-4 md:pt-6">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="text-xs uppercase bg-muted/50 text-muted-foreground border-y">
-                                <tr>
-                                    <th className="px-6 py-3 font-semibold">{t('table.family_name')}</th>
-                                    <th className="px-6 py-3 font-semibold">{t('table.parents')}</th>
-                                    <th className="px-6 py-3 font-semibold">{t('table.mobile')}</th>
-                                    <th className="px-6 py-3 font-semibold">{t('table.city')}</th>
-                                    <th className="px-6 py-3 font-semibold text-right">{t('table.actions')}</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                                {loading ? (
-                                    Array.from({ length: 3 }).map((_, i) => (
-                                        <tr key={i} className="animate-pulse">
-                                            <td className="px-6 py-4"><div className="h-4 bg-muted rounded w-32"></div></td>
-                                            <td className="px-6 py-4"><div className="h-4 bg-muted rounded w-48"></div></td>
-                                            <td className="px-6 py-4"><div className="h-4 bg-muted rounded w-24"></div></td>
-                                            <td className="px-6 py-4"><div className="h-4 bg-muted rounded w-20"></div></td>
-                                            <td className="px-6 py-4 text-right"><div className="h-8 bg-muted rounded w-8 ml-auto"></div></td>
-                                        </tr>
-                                    ))
-                                ) : filteredFamilies.length > 0 ? (
-                                    filteredFamilies.map((family) => (
-                                        <tr key={family.id} className="hover:bg-accent/50 transition-colors group">
-                                            <td className="px-6 py-4 font-medium">{family.familje_namn}</td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <span>{family.make_namn}</span>
-                                                    {family.hustru_namn && <span className="text-xs text-muted-foreground">{family.hustru_namn}</span>}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-muted-foreground">{family.mobil_nummer || "-"}</td>
-                                            <td className="px-6 py-4">{family.ort || "-"}</td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(family.id)}>
-                                                        <Edit2 className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteClick(family)}>
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(family.id)}>
-                                                        <ChevronRight className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
-                                            {searchQuery ? t('table.empty_search') : t('table.empty_register')}
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* EDIT MODAL */}
+            {/* Edit form */}
             {editMode && selectedFamily && (
                 <FamilyForm
                     initialData={selectedFamily}
-                    onClose={() => {
-                        setEditMode(false)
-                        setSelectedFamily(null)
-                    }}
-                    onSuccess={() => {
-                        setEditMode(false)
-                        setSelectedFamily(null)
-                        fetchFamilies()
-                    }}
+                    onClose={() => { setEditMode(false); setSelectedFamily(null) }}
+                    onSuccess={() => { setEditMode(false); setSelectedFamily(null); fetchFamilies() }}
                 />
             )}
 
-            {/* DELETE MODAL */}
+            {/* Delete dialog */}
             {deleteMode && selectedFamily && (
-                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <Card className="w-full max-w-md glass-card shadow-2xl">
-                        <CardHeader>
-                            <CardTitle>Bekräfta radering</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p>Är du säker på att du vill radera familjen <strong>{selectedFamily.familje_namn}</strong>? Detta kommer även att radera alla tillhörande barn och betalningar permanent.</p>
-                            <div className="flex justify-end gap-3 mt-6">
-                                <Button variant="ghost" onClick={() => setDeleteMode(false)} disabled={actionLoading}>Avbryt</Button>
-                                <Button variant="destructive" onClick={confirmDelete} disabled={actionLoading}>
-                                    {actionLoading ? "Raderar..." : "Ja, radera"}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
+                <div className="modal-overlay">
+                    <div className="modal-content max-w-md p-8">
+                        <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+                            <Trash2 size={22} style={{ color: '#C0392B' }} />
+                        </div>
+                        <h2 className="text-lg font-bold text-center mb-2">
+                            {language === 'sv' ? 'Bekräfta radering' : 'Confirm deletion'}
+                        </h2>
+                        <p className="text-sm text-muted-foreground text-center mb-6">
+                            {language === 'sv'
+                                ? `Är du säker att du vill radera familjen `
+                                : `Are you sure you want to delete family `}
+                            <strong>{selectedFamily.familje_namn}</strong>?
+                            {language === 'sv'
+                                ? ' Alla barn och betalningar raderas permanent.'
+                                : ' All children and payments will be permanently deleted.'}
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setDeleteMode(false)}
+                                disabled={actionLoading}
+                                className="flex-1 py-2.5 rounded-[10px] text-sm font-semibold border border-border hover:bg-secondary transition-colors"
+                            >
+                                {t('common.cancel')}
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                disabled={actionLoading}
+                                className="flex-1 py-2.5 rounded-[10px] text-sm font-semibold text-white transition-colors disabled:opacity-60"
+                                style={{ background: '#C0392B' }}
+                            >
+                                {actionLoading
+                                    ? (language === 'sv' ? 'Raderar...' : 'Deleting...')
+                                    : (language === 'sv' ? 'Ja, radera' : 'Yes, delete')}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
-            {/* VIEW MODAL */}
+            {/* View modal */}
             {viewMode && selectedFamily && (
-                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto glass-card shadow-2xl">
-                        <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-                            <CardTitle>Familjedetaljer: {selectedFamily.familje_namn}</CardTitle>
-                            <Button variant="ghost" size="icon" onClick={() => setViewMode(false)}>
-                                <X className="h-5 w-5" />
-                            </Button>
-                        </CardHeader>
-                        <CardContent className="space-y-6 pt-6">
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div><span className="font-semibold text-muted-foreground">Mobil:</span> {selectedFamily.mobil_nummer || "-"}</div>
-                                <div><span className="font-semibold text-muted-foreground">E-post:</span> {selectedFamily.mail || "-"}</div>
-                                <div><span className="font-semibold text-muted-foreground">Adress:</span> {selectedFamily.adress || "-"}</div>
-                                <div><span className="font-semibold text-muted-foreground">Ort:</span> {selectedFamily.ort || "-"} {selectedFamily.post_kod}</div>
-                                <div><span className="font-semibold text-muted-foreground">Land:</span> {selectedFamily.land || "Sverige"}</div>
+                <div className="modal-overlay">
+                    <div className="modal-content max-w-2xl">
+                        <div className="flex items-center justify-between p-6 border-b border-border">
+                            <h2 className="text-lg font-bold">
+                                {language === 'sv' ? 'Familjedetaljer' : 'Family Details'}: {selectedFamily.familje_namn}
+                            </h2>
+                            <button
+                                onClick={() => setViewMode(false)}
+                                className="p-2 rounded-[10px] hover:bg-secondary transition-colors"
+                                aria-label={t('common.close')}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-6">
+                            {/* Contact */}
+                            <div>
+                                <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                                    {language === 'sv' ? 'Kontaktuppgifter' : 'Contact'}
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    {[
+                                        [language === 'sv' ? 'Mobil' : 'Mobile', selectedFamily.mobil_nummer],
+                                        ['E-post', selectedFamily.mail],
+                                        [language === 'sv' ? 'Adress' : 'Address', selectedFamily.adress],
+                                        [language === 'sv' ? 'Ort' : 'City', `${selectedFamily.ort ?? ''} ${selectedFamily.post_kod ?? ''}`.trim()],
+                                        [language === 'sv' ? 'Land' : 'Country', selectedFamily.land ?? 'Sverige'],
+                                    ].map(([label, value]) => (
+                                        <div key={label} className="bg-secondary rounded-[10px] p-3">
+                                            <div className="text-xs text-muted-foreground mb-1">{label}</div>
+                                            <div className="font-medium">{value || '—'}</div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
 
-                            <div className="space-y-4">
-                                <h3 className="font-semibold border-b pb-2">Föräldrar</h3>
-                                <div className="grid grid-cols-2 gap-4 bg-muted/30 p-4 rounded-lg">
+                            {/* Adults */}
+                            <div>
+                                <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                                    {language === 'sv' ? 'Föräldrar' : 'Parents'}
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
                                     {selectedFamily.make_namn && (
-                                        <div>
-                                            <p className="font-medium text-primary">{selectedFamily.make_namn}</p>
-                                            <p className="text-sm text-muted-foreground">PN: {selectedFamily.make_personnummer || "-"}</p>
-                                            <p className="text-sm text-muted-foreground">Avgift: {selectedFamily.make_manads_avgift} kr</p>
+                                        <div className="bg-secondary rounded-[10px] p-4">
+                                            <div className="font-semibold mb-1">{selectedFamily.make_namn}</div>
+                                            <div className="text-xs text-muted-foreground">PN: {selectedFamily.make_personnummer ?? '—'}</div>
+                                            <div className="text-xs text-muted-foreground">{selectedFamily.make_manads_avgift} kr/mån</div>
                                         </div>
                                     )}
                                     {selectedFamily.hustru_namn && (
-                                        <div>
-                                            <p className="font-medium text-pink-600">{selectedFamily.hustru_namn}</p>
-                                            <p className="text-sm text-muted-foreground">PN: {selectedFamily.hustru_personnummer || "-"}</p>
-                                            <p className="text-sm text-muted-foreground">Avgift: {selectedFamily.hustru_manads_avgift} kr</p>
+                                        <div className="bg-secondary rounded-[10px] p-4">
+                                            <div className="font-semibold mb-1">{selectedFamily.hustru_namn}</div>
+                                            <div className="text-xs text-muted-foreground">PN: {selectedFamily.hustru_personnummer ?? '—'}</div>
+                                            <div className="text-xs text-muted-foreground">{selectedFamily.hustru_manads_avgift} kr/mån</div>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
-                                <h3 className="font-semibold border-b pb-2">Barn ({selectedFamily.children?.length || 0})</h3>
-                                {selectedFamily.children && selectedFamily.children.length > 0 ? (
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {selectedFamily.children.map((child: any) => (
-                                            <div key={child.id} className="bg-secondary/50 p-3 rounded-md text-sm">
-                                                <p className="font-medium">{child.namn}</p>
-                                                <p className="text-muted-foreground">PN: {child.personnummer || "-"}</p>
-                                                <p className="text-muted-foreground">Avgift: {child.manads_avgift} kr</p>
+                            {/* Children */}
+                            {selectedFamily.children?.length > 0 && (
+                                <div>
+                                    <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                                        {language === 'sv' ? `Barn (${selectedFamily.children.length})` : `Children (${selectedFamily.children.length})`}
+                                    </div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                        {selectedFamily.children.map((child: any, i: number) => (
+                                            <div key={child.id ?? i} className="bg-secondary rounded-[10px] p-3 text-sm">
+                                                <div className="font-medium">{child.namn}</div>
+                                                <div className="text-xs text-muted-foreground">{child.manads_avgift} kr/mån</div>
                                             </div>
                                         ))}
                                     </div>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">Inga barn registrerade.</p>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
+                                </div>
+                            )}
+                        </div>
+                        <div className="px-6 pb-6">
+                            <button
+                                onClick={() => setViewMode(false)}
+                                className="w-full py-2.5 rounded-[10px] text-sm font-semibold border border-border hover:bg-secondary transition-colors"
+                            >
+                                {t('common.close')}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

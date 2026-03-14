@@ -1,114 +1,181 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { createClient } from "@/utils/supabase/client"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingUp, TrendingDown, Wallet, Users, ArrowUpRight, ArrowDownRight } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { TrendingUp, TrendingDown, Wallet, Users, Users2 } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 export default function Dashboard() {
-    const supabase = createClient()
+    const supabase = useMemo(() => {
+        try { return createClient() } catch { return null }
+    }, [])
     const { t } = useLanguage()
     const [stats, setStats] = useState({
         totalIncome: 0,
         totalExpenses: 0,
         familyCount: 0,
-        memberCount: 0
+        memberCount: 0,
     })
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
+        if (!supabase) return
         const fetchStats = async () => {
             setLoading(true)
+            const [
+                { data: income },
+                { data: expenses },
+                { count: families },
+                { data: adults },
+                { count: children },
+            ] = await Promise.all([
+                supabase.from('intakter').select('total'),
+                supabase.from('utgifter').select('total'),
+                supabase.from('familjer').select('*', { count: 'exact', head: true }),
+                supabase.from('familjer').select('make_namn, hustru_namn'),
+                supabase.from('barn').select('*', { count: 'exact', head: true }),
+            ])
 
-            const { data: income } = await supabase.from('intakter').select('total')
-            const { data: expenses } = await supabase.from('utgifter').select('total')
-            const { count: families } = await supabase.from('familjer').select('*', { count: 'exact', head: true })
+            const totalInc = income?.reduce((s, i) => s + (i.total ?? 0), 0) ?? 0
+            const totalExp = expenses?.reduce((s, e) => s + (e.total ?? 0), 0) ?? 0
 
-            const totalInc = income?.reduce((sum: number, i: any) => sum + (i.total || 0), 0) || 0
-            const totalExp = expenses?.reduce((sum: number, e: any) => sum + (e.total || 0), 0) || 0
+            // Count adults: each non-null make + hustru
+            const adultCount = (adults ?? []).reduce((s, f) => {
+                return s + (f.make_namn ? 1 : 0) + (f.hustru_namn ? 1 : 0)
+            }, 0)
 
             setStats({
                 totalIncome: totalInc,
                 totalExpenses: totalExp,
-                familyCount: families || 0,
-                memberCount: 0 // Would need another query for barn + adults
+                familyCount: families ?? 0,
+                memberCount: adultCount + (children ?? 0),
             })
             setLoading(false)
         }
         fetchStats()
-    }, [])
+    }, [supabase])
 
     const remaining = stats.totalIncome - stats.totalExpenses
 
+    const cards = [
+        {
+            label: t('page.dashboard.total_income'),
+            value: `${stats.totalIncome.toLocaleString('sv-SE')} kr`,
+            sub: t('page.dashboard.from_all_sources'),
+            icon: TrendingUp,
+            color: '#2C7A4B',
+            bg: '#D4EDDA',
+        },
+        {
+            label: t('page.dashboard.total_expenses'),
+            value: `${stats.totalExpenses.toLocaleString('sv-SE')} kr`,
+            sub: t('page.dashboard.rent_bills'),
+            icon: TrendingDown,
+            color: '#C0392B',
+            bg: '#F8D7DA',
+        },
+        {
+            label: t('page.dashboard.net_balance'),
+            value: `${remaining.toLocaleString('sv-SE')} kr`,
+            sub: t('page.dashboard.cash_balance'),
+            icon: Wallet,
+            color: remaining >= 0 ? '#C9A84C' : '#C0392B',
+            bg: remaining >= 0 ? '#FEF3C7' : '#F8D7DA',
+        },
+    ]
+
     return (
-        <div className="space-y-8">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">{t('page.dashboard.title')}</h1>
-                <p className="text-muted-foreground">{t('page.dashboard.desc')}</p>
+        <div>
+            <div className="page-header">
+                <h1 className="text-2xl font-bold tracking-tight">{t('page.dashboard.title')}</h1>
+                <p className="text-muted-foreground text-sm mt-1">{t('page.dashboard.desc')}</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="glass-card border-none overflow-hidden group">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">{t('page.dashboard.total_income')}</CardTitle>
-                        <TrendingUp className="h-4 w-4 text-green-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-green-600">{loading ? "..." : `${stats.totalIncome.toLocaleString('sv-SE')} kr`}</div>
-                        <p className="text-xs text-muted-foreground mt-1 flex items-center">
-                            <ArrowUpRight className="h-3 w-3 mr-1" /> {t('page.dashboard.from_all_sources')}
-                        </p>
-                    </CardContent>
-                    <div className="h-1 w-full bg-green-500/20 group-hover:bg-green-500/40 transition-colors" />
-                </Card>
-
-                <Card className="glass-card border-none overflow-hidden group">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">{t('page.dashboard.total_expenses')}</CardTitle>
-                        <TrendingDown className="h-4 w-4 text-red-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-red-600">{loading ? "..." : `${stats.totalExpenses.toLocaleString('sv-SE')} kr`}</div>
-                        <p className="text-xs text-muted-foreground mt-1 flex items-center">
-                            <ArrowDownRight className="h-3 w-3 mr-1" /> {t('page.dashboard.rent_bills')}
-                        </p>
-                    </CardContent>
-                    <div className="h-1 w-full bg-red-500/20 group-hover:bg-red-500/40 transition-colors" />
-                </Card>
-
-                <Card className="glass-card border-none overflow-hidden group">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">{t('page.dashboard.net_balance')}</CardTitle>
-                        <Wallet className="h-4 w-4 text-primary" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className={cn("text-3xl font-bold", remaining >= 0 ? "text-primary" : "text-destructive")}>
-                            {loading ? "..." : `${remaining.toLocaleString('sv-SE')} kr`}
+            {/* Financial stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
+                {cards.map(card => {
+                    const Icon = card.icon
+                    return (
+                        <div key={card.label} className="stat-card card-lift">
+                            <div className="flex items-start justify-between">
+                                <div className="stat-label">{card.label}</div>
+                                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                                    style={{ background: card.bg }}>
+                                    <Icon size={18} style={{ color: card.color }} />
+                                </div>
+                            </div>
+                            <div className="stat-value" style={{ color: card.color }}>
+                                {loading ? (
+                                    <div className="h-8 w-32 bg-secondary rounded animate-pulse mt-2" />
+                                ) : card.value}
+                            </div>
+                            <div className="stat-sub">{card.sub}</div>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">{t('page.dashboard.cash_balance')}</p>
-                    </CardContent>
-                    <div className="h-1 w-full bg-primary/20 group-hover:bg-primary/40 transition-colors" />
-                </Card>
+                    )
+                })}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="glass-card border-none">
-                    <CardHeader>
-                        <CardTitle>{t('page.dashboard.membership')}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex items-center gap-4">
-                        <div className="p-4 rounded-full bg-primary/10">
-                            <Users className="h-8 w-8 text-primary" />
+            {/* Membership stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="stat-card card-lift">
+                    <div className="flex items-start justify-between">
+                        <div className="stat-label">{t('page.dashboard.registered_families')}</div>
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ background: '#EDE8DF' }}>
+                            <Users size={18} style={{ color: '#1A1A1A' }} />
                         </div>
-                        <div>
-                            <div className="text-2xl font-bold">{stats.familyCount}</div>
-                            <p className="text-sm text-muted-foreground">{t('page.dashboard.registered_families')}</p>
+                    </div>
+                    <div className="stat-value">
+                        {loading ? <div className="h-8 w-16 bg-secondary rounded animate-pulse mt-2" /> : stats.familyCount}
+                    </div>
+                    <div className="stat-sub">{t('page.dashboard.membership')}</div>
+                </div>
+
+                <div className="stat-card card-lift">
+                    <div className="flex items-start justify-between">
+                        <div className="stat-label">{t('page.dashboard.registered_members')}</div>
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ background: '#EDE8DF' }}>
+                            <Users2 size={18} style={{ color: '#1A1A1A' }} />
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                    <div className="stat-value">
+                        {loading ? <div className="h-8 w-16 bg-secondary rounded animate-pulse mt-2" /> : stats.memberCount}
+                    </div>
+                    <div className="stat-sub">
+                        {`${stats.familyCount} ${t('page.dashboard.registered_families').toLowerCase()}`}
+                    </div>
+                </div>
             </div>
+
+            {/* Net balance progress bar */}
+            {!loading && stats.totalIncome > 0 && (
+                <div className="stat-card mt-5">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="stat-label">
+                            {remaining >= 0 ? '✓ Positiv kassabalans' : '⚠ Negativ kassabalans'}
+                        </div>
+                        <span className="text-sm font-bold" style={{ color: remaining >= 0 ? '#2C7A4B' : '#C0392B' }}>
+                            {Math.round((1 - stats.totalExpenses / stats.totalIncome) * 100)}%
+                        </span>
+                    </div>
+                    <div className="h-2 rounded-full overflow-hidden" style={{ background: '#EDE8DF' }}>
+                        <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                                width: `${Math.min(100, Math.max(0, (stats.totalExpenses / stats.totalIncome) * 100))}%`,
+                                background: remaining >= 0
+                                    ? 'linear-gradient(90deg, #2C7A4B, #48BB78)'
+                                    : 'linear-gradient(90deg, #C0392B, #E57373)',
+                            }}
+                        />
+                    </div>
+                    <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+                        <span>{t('page.dashboard.total_expenses')}: {stats.totalExpenses.toLocaleString('sv-SE')} kr</span>
+                        <span>{t('page.dashboard.total_income')}: {stats.totalIncome.toLocaleString('sv-SE')} kr</span>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

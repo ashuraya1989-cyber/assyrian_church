@@ -4,9 +4,10 @@ export function createClient() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-    // Fallback for build time to prevent @supabase/ssr from throwing
     if (!url || !key) {
-        return {} as any
+        throw new Error(
+            'Missing Supabase env vars: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be set.'
+        )
     }
 
     return createBrowserClient(url, key)
