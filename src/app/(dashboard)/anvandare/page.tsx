@@ -232,7 +232,7 @@ export default function UsersPage() {
                         />
                     </div>
                 </div>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto table-scroll-wrapper">
                     <table className="premium-table">
                         <thead>
                             <tr>

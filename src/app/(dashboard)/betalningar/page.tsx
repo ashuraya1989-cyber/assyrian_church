@@ -214,7 +214,7 @@ export default function BetalningarPage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-5">
                 <div className="stat-card">
                     <div className="stat-label">{language === 'sv' ? 'Totalt' : 'Total'}</div>
                     <div className="stat-value">{stats.total}</div>
@@ -243,7 +243,7 @@ export default function BetalningarPage() {
 
             {/* Table */}
             <div className="bg-card border border-border rounded-[14px] overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto table-scroll-wrapper">
                     <table className="premium-table">
                         <thead>
                             <tr>

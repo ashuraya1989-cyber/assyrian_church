@@ -429,3 +429,149 @@
   .no-print { display: none !important; }
   body { background: white !important; }
 }
+
+/* ============================================================
+   MOBILE RESPONSIVE — Full mobile support
+   ============================================================ */
+
+/* ── Prevent iOS zoom on input focus (font-size must be ≥16px) ── */
+@media (max-width: 768px) {
+
+  /* All inputs, selects, textareas: force 16px to stop iOS zoom */
+  input,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="date"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* .input-premium on mobile */
+  .input-premium {
+    font-size: 16px !important;
+    padding: 12px 14px;
+    /* Prevent tap highlight */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ── Page header — smaller on mobile ── */
+  .page-header {
+    margin-bottom: 20px;
+  }
+  .page-header h1 {
+    font-size: 1.4rem;
+  }
+
+  /* ── Stat cards — compact on mobile ── */
+  .stat-card {
+    padding: 16px;
+  }
+  .stat-card .stat-value {
+    font-size: 1.5rem;
+    margin-top: 4px;
+  }
+
+  /* ── Tables — horizontal scroll on mobile ── */
+  .premium-table {
+    min-width: 600px; /* force scroll rather than squish */
+  }
+
+  .premium-table tbody td {
+    padding: 10px 12px;
+    font-size: 0.8125rem;
+  }
+
+  .premium-table thead th {
+    padding: 10px 12px;
+  }
+
+  /* ── Modal — full screen on mobile ── */
+  .modal-overlay {
+    padding: 0;
+    align-items: flex-end; /* slide up from bottom */
+  }
+
+  .modal-content {
+    border-radius: 24px 24px 0 0;
+    max-height: 95vh;
+    max-width: 100%;
+  }
+
+  /* ── Buttons — bigger tap targets ── */
+  button {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* ── Sidebar items — bigger tap area ── */
+  .sidebar-item {
+    padding: 13px 14px;
+    font-size: 0.9375rem;
+  }
+
+  /* ── Badges — don't wrap ── */
+  .badge {
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    padding: 2px 8px;
+  }
+}
+
+/* ── Table wrapper for horizontal scroll on mobile ── */
+.table-scroll-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Subtle shadow to hint scroll */
+  background: linear-gradient(to right, var(--card) 30%, rgba(254,252,248,0)),
+              linear-gradient(to left,  var(--card) 30%, rgba(254,252,248,0)) 100% 0,
+              radial-gradient(farthest-side at 0%   50%, rgba(26,26,26,.08), transparent),
+              radial-gradient(farthest-side at 100% 50%, rgba(26,26,26,.08), transparent) 100% 0;
+  background-repeat: no-repeat;
+  background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+  background-attachment: local, local, scroll, scroll;
+}
+
+/* ── Responsive grid helpers ── */
+@media (max-width: 640px) {
+  /* 3-column grids → 1 column on small screens */
+  .grid-cols-3.mobile-cols-1 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  /* Stat grids: keep 3-col but compress values */
+  .grid-stats {
+    gap: 8px;
+  }
+}
+
+/* ── Login page — center properly on mobile ── */
+@media (max-width: 480px) {
+  /* Tighter card on small phones */
+  .login-card-padding {
+    padding: 24px 20px !important;
+  }
+}
+
+/* ── Prevent body scroll bleed on iOS when modal is open ── */
+body.modal-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+/* ── Safe area insets for notched iPhones ── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .modal-content {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  main {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

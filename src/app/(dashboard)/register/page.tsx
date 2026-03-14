@@ -215,7 +215,7 @@ export default function RegisterPage() {
 
             {/* Table */}
             <div className="bg-card border border-border rounded-[14px] overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto table-scroll-wrapper">
                     <table className="premium-table">
                         <thead>
                             <tr>

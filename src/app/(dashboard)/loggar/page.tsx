@@ -182,7 +182,7 @@ export default function LoggarPage() {
                         {t('table.logs.empty')}
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto table-scroll-wrapper">
                         <table className="premium-table">
                             <thead>
                                 <tr>

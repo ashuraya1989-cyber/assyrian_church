@@ -98,7 +98,7 @@ export default function IntakterPage() {
                                 {months.map(m => <option key={m} value={m}>{m}</option>)}
                             </select>
                         </div>
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto table-scroll-wrapper">
                             <table className="premium-table">
                                 <thead>
                                     <tr>

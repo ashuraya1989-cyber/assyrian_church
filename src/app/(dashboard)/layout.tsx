@@ -16,12 +16,12 @@ export default function DashboardLayout({
                     <Sidebar />
                 </aside>
 
-                {/* Mobile sidebar */}
+                {/* Mobile sidebar (hamburger + drawer) */}
                 <MobileSidebar />
 
-                {/* Main content */}
-                <main className="flex-1 overflow-y-auto">
-                    <div className="px-6 py-7 md:px-10 md:py-8 max-w-7xl mx-auto">
+                {/* Main content — pt-20 on mobile clears the hamburger button */}
+                <main className="flex-1 overflow-y-auto overflow-x-hidden">
+                    <div className="px-4 pt-20 pb-6 md:px-10 md:pt-8 md:pb-8 max-w-7xl mx-auto">
                         {children}
                     </div>
                 </main>

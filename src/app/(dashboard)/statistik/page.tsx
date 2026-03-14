@@ -153,7 +153,7 @@ export default function StatistikPage() {
                     <TrendingUp size={16} style={{ color: '#C9A84C' }} />
                     {language === 'sv' ? 'Månadsöversikt' : 'Monthly overview'}
                 </div>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto table-scroll-wrapper">
                     <table className="premium-table">
                         <thead>
                             <tr>
