@@ -107,7 +107,7 @@ const translations = {
         "status.unpaid":      "Obetald",
         "status.overdue":     "Förfallen",
         "status.soon_overdue":"Snart förfaller",
-        "status.up_to_date":  "À jour",
+        "status.up_to_date":  "Betald",
         "status.active":      "Aktiv",
         "status.inactive":    "Inaktiv",
 
@@ -381,7 +381,7 @@ const translations = {
         "status.unpaid":       "Unpaid",
         "status.overdue":      "Overdue",
         "status.soon_overdue": "Expiring soon",
-        "status.up_to_date":   "Up to date",
+        "status.up_to_date":   "Paid",
         "status.active":       "Active",
         "status.inactive":     "Inactive",
 

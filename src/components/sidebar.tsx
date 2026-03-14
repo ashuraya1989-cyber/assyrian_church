@@ -101,31 +101,39 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
 
     return (
         <div className="flex h-full flex-col" style={{ background: '#1C1C1C' }}>
-            {/* Header */}
-            <div className="px-5 py-5 flex items-center justify-between border-b" style={{ borderColor: '#2E2E2E' }}>
-                <div className="flex items-center gap-3 min-w-0">
-                    {adminLogoUrl ? (
-                        <img src={adminLogoUrl} alt="Logo"
-                            style={{ height: `${adminLogoSize}px`, maxWidth: '100px', objectFit: 'contain' }} />
-                    ) : (
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                            style={{ background: 'linear-gradient(135deg, #C9A84C 0%, #8B6914 100%)' }}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                                <path d="M2 17l10 5 10-5" />
-                                <path d="M2 12l10 5 10-5" />
-                            </svg>
-                        </div>
+            {/* Header — logo stacked above name */}
+            <div className="px-5 py-5 border-b" style={{ borderColor: '#2E2E2E' }}>
+                <div className="flex items-start justify-between">
+                    <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
+                        {/* Logo */}
+                        {adminLogoUrl ? (
+                            <img
+                                src={adminLogoUrl}
+                                alt="Logo"
+                                style={{ height: `${adminLogoSize}px`, maxWidth: '120px', objectFit: 'contain' }}
+                            />
+                        ) : (
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                                style={{ background: 'linear-gradient(135deg, #C9A84C 0%, #8B6914 100%)' }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                                    <path d="M2 17l10 5 10-5" />
+                                    <path d="M2 12l10 5 10-5" />
+                                </svg>
+                            </div>
+                        )}
+                        {/* Name under logo */}
+                        <span className="font-bold text-sm text-center leading-tight w-full truncate px-1"
+                            style={{ color: '#F0EBE0' }}>
+                            {adminTitle}
+                        </span>
+                    </div>
+                    {onClose && (
+                        <button onClick={onClose} className="p-1 rounded-md hover:bg-white/10 transition-colors flex-shrink-0 mt-1" aria-label="Stäng meny">
+                            <X size={18} style={{ color: '#B8AFA0' }} />
+                        </button>
                     )}
-                    <span className="font-bold text-sm truncate" style={{ color: '#F0EBE0' }}>
-                        {adminTitle}
-                    </span>
                 </div>
-                {onClose && (
-                    <button onClick={onClose} className="p-1 rounded-md hover:bg-white/10 transition-colors" aria-label="Stäng meny">
-                        <X size={18} style={{ color: '#B8AFA0' }} />
-                    </button>
-                )}
             </div>
 
             {/* Nav items */}

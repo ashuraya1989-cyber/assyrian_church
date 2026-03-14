@@ -78,10 +78,22 @@ export default function BetalningarPage() {
         return { label: t('status.up_to_date'), cls: 'badge-success', icon: CheckCircle2 }
     }
 
-    const filteredPayments = payments.filter(p =>
-        p.familje_namn?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.make_namn?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
-    )
+    // Status priority: overdue/unpaid = 0, soon = 1, paid = 2
+    const statusPriority = (p: any): number => {
+        if (!p.paid_until) return 0
+        const today = new Date()
+        const until = parseISO(p.paid_until)
+        if (isBefore(until, today)) return 0
+        if (isBefore(until, addDays(today, 30))) return 1
+        return 2
+    }
+
+    const filteredPayments = payments
+        .filter(p =>
+            p.familje_namn?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (p.make_namn?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
+        )
+        .sort((a, b) => statusPriority(a) - statusPriority(b))
 
     // Stats
     const stats = useMemo(() => {
@@ -277,41 +289,53 @@ export default function BetalningarPage() {
                                                 </span>
                                             </td>
                                             <td>
-                                                <div className="flex justify-end items-center gap-1.5">
+                                                <div className="flex flex-col items-end gap-1">
+                                                    {/* Inline feedback (success/error) */}
                                                     {fb && (
-                                                        <span className={`text-xs font-medium ${fb.ok ? 'text-green-600' : 'text-red-600'}`}>
+                                                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${fb.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
                                                             {fb.msg}
                                                         </span>
                                                     )}
-                                                    {isOverdue && (
+                                                    <div className="flex items-center gap-1.5">
+                                                        {/* Reminder button — only visible when overdue */}
+                                                        {isOverdue && (
+                                                            <button
+                                                                onClick={() => handleSendReminder(p)}
+                                                                disabled={sendingReminder === p.id}
+                                                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                                                                style={{
+                                                                    background: '#FEF2F2',
+                                                                    color: '#C0392B',
+                                                                    border: '1px solid #FECACA',
+                                                                }}
+                                                                onMouseEnter={e => (e.currentTarget.style.background = '#FEE2E2')}
+                                                                onMouseLeave={e => (e.currentTarget.style.background = '#FEF2F2')}
+                                                                title={t('action.send_reminder')}
+                                                            >
+                                                                {sendingReminder === p.id
+                                                                    ? <RefreshCcw size={12} className="animate-spin" />
+                                                                    : <Bell size={12} />}
+                                                                {language === 'sv' ? 'Påminnelse' : 'Reminder'}
+                                                            </button>
+                                                        )}
+                                                        {/* Manage button */}
                                                         <button
-                                                            onClick={() => handleSendReminder(p)}
-                                                            disabled={sendingReminder === p.id}
-                                                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-border hover:bg-secondary transition-colors disabled:opacity-50"
-                                                            title={t('action.send_reminder')}
+                                                            onClick={() => {
+                                                                setSelectedPayment({
+                                                                    familj_id: p.id,
+                                                                    total_manads_avgift: p.monthly_fee,
+                                                                    total_ars_avgift: p.annual_fee,
+                                                                    summan: p.monthly_fee,
+                                                                })
+                                                                setShowForm(true)
+                                                            }}
+                                                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-primary-foreground"
+                                                            style={{ background: '#1A1A1A' }}
                                                         >
-                                                            {sendingReminder === p.id
-                                                                ? <RefreshCcw size={12} className="animate-spin" />
-                                                                : <Bell size={12} />}
-                                                            {language === 'sv' ? 'Påminnelse' : 'Reminder'}
+                                                            <CreditCard size={12} />
+                                                            {t('action.manage')}
                                                         </button>
-                                                    )}
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedPayment({
-                                                                familj_id: p.id,
-                                                                total_manads_avgift: p.monthly_fee,
-                                                                total_ars_avgift: p.annual_fee,
-                                                                summan: p.monthly_fee,
-                                                            })
-                                                            setShowForm(true)
-                                                        }}
-                                                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-primary-foreground"
-                                                        style={{ background: '#1A1A1A' }}
-                                                    >
-                                                        <CreditCard size={12} />
-                                                        {t('action.manage')}
-                                                    </button>
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>

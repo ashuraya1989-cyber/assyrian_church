@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { createClient } from "@/utils/supabase/client"
-import { Save, Loader2, Mail, Image as ImageIcon, Shield, Eye, EyeOff } from "lucide-react"
+import { Save, Loader2, Mail, Image as ImageIcon, Shield, Eye, EyeOff, Type } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
@@ -38,7 +38,6 @@ export default function SettingsPage() {
     useEffect(() => {
         if (!supabase) return
         const init = async () => {
-            // Check role
             try {
                 const { data: { user } } = await supabase.auth.getUser()
                 if (user?.id) {
@@ -47,7 +46,6 @@ export default function SettingsPage() {
                 }
             } catch { /* ignore */ }
 
-            // Fetch settings
             try {
                 const { data } = await supabase.from('app_settings').select('*').eq('id', 1).single()
                 if (data) {
@@ -97,7 +95,6 @@ export default function SettingsPage() {
         const file = event.target.files?.[0]
         if (!file) return
 
-        // Server-side type validation
         if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
             setMessage({ type: 'error', text: language === 'sv' ? 'Ogiltig filtyp. Tillåtna: JPG, PNG, GIF, WebP, SVG.' : 'Invalid file type. Allowed: JPG, PNG, GIF, WebP, SVG.' })
             return
@@ -172,73 +169,181 @@ export default function SettingsPage() {
                     </div>
                 )}
 
-                {/* Admin panel settings */}
-                <SectionCard icon={<ImageIcon size={16} />} title={t('page.settings.admin_section')}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-semibold">{language === 'sv' ? 'Sidtitel / Företagsnamn' : 'Page title / Organization name'}</label>
-                            <input className="input-premium" value={settings.admin_title} onChange={(e) => set('admin_title', e.target.value)} placeholder="Kyrkoregistret" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-semibold">{language === 'sv' ? 'Logotyp storlek (px)' : 'Logo size (px)'}</label>
-                            <input type="range" min="16" max="100" value={settings.admin_logo_size} onChange={(e) => set('admin_logo_size', Number(e.target.value))} className="w-full mt-3" />
-                            <div className="text-xs text-muted-foreground">{settings.admin_logo_size}px</div>
-                        </div>
-                        <div className="space-y-1.5 md:col-span-2">
-                            <label className="text-sm font-semibold">{t('page.settings.upload_logo')} ({language === 'sv' ? 'adminpanelen' : 'admin panel'})</label>
-                            <div className="flex items-center gap-3">
-                                <input type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
-                                    onChange={(e) => handleFileUpload(e, 'admin')} disabled={uploadingAdmin}
-                                    className="input-premium cursor-pointer" />
-                                {uploadingAdmin && <Loader2 className="animate-spin" size={16} />}
+                {/* ── Adminpanelens logotyp & namn ─────────────────────── */}
+                <SectionCard icon={<ImageIcon size={16} />} title={language === 'sv' ? 'Adminpanelens logotyp & namn' : 'Admin panel logo & name'}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Left: inputs */}
+                        <div className="space-y-4">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-semibold flex items-center gap-1.5">
+                                    <Type size={13} style={{ color: '#C9A84C' }} />
+                                    {language === 'sv' ? 'Organisationsnamn' : 'Organization name'}
+                                </label>
+                                <input
+                                    className="input-premium"
+                                    value={settings.admin_title}
+                                    onChange={(e) => set('admin_title', e.target.value)}
+                                    placeholder="Kyrkoregistret"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    {language === 'sv' ? 'Visas under logotypen i sidofältet.' : 'Displayed under the logo in the sidebar.'}
+                                </p>
                             </div>
-                            <p className="text-xs text-muted-foreground">{language === 'sv' ? 'Max 2MB. JPG, PNG, GIF, WebP, SVG tillåtna.' : 'Max 2MB. JPG, PNG, GIF, WebP, SVG allowed.'}</p>
-                            {settings.admin_logo_url && (
-                                <img src={settings.admin_logo_url} alt="Admin logo" style={{ height: settings.admin_logo_size }}
-                                    className="mt-2 rounded-lg object-contain border border-border p-2 bg-secondary"
-                                    onError={(e) => (e.currentTarget.style.display = 'none')} />
+
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-semibold">
+                                    {language === 'sv' ? 'Logotypstorlek' : 'Logo size'} — {settings.admin_logo_size}px
+                                </label>
+                                <input
+                                    type="range" min="16" max="100"
+                                    value={settings.admin_logo_size}
+                                    onChange={(e) => set('admin_logo_size', Number(e.target.value))}
+                                    className="w-full accent-gold"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-semibold">{t('page.settings.upload_logo')}</label>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+                                        onChange={(e) => handleFileUpload(e, 'admin')}
+                                        disabled={uploadingAdmin}
+                                        className="input-premium cursor-pointer text-sm"
+                                    />
+                                    {uploadingAdmin && <Loader2 className="animate-spin flex-shrink-0" size={16} />}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    {language === 'sv' ? 'Max 2MB · JPG, PNG, GIF, WebP, SVG' : 'Max 2MB · JPG, PNG, GIF, WebP, SVG'}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Right: live preview — logo ABOVE name */}
+                        <div className="flex flex-col items-center justify-center rounded-[14px] p-6 gap-3"
+                            style={{ background: '#1C1C1C', minHeight: '160px' }}>
+                            <p className="text-xs mb-2" style={{ color: '#6B6355' }}>
+                                {language === 'sv' ? 'Förhandsvisning' : 'Preview'}
+                            </p>
+                            {settings.admin_logo_url ? (
+                                <img
+                                    src={settings.admin_logo_url}
+                                    alt="Admin logo preview"
+                                    style={{ height: settings.admin_logo_size, maxWidth: '120px', objectFit: 'contain' }}
+                                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                                />
+                            ) : (
+                                <div className="rounded-xl flex items-center justify-center"
+                                    style={{ width: settings.admin_logo_size, height: settings.admin_logo_size, background: 'linear-gradient(135deg,#C9A84C,#8B6914)' }}>
+                                    <svg width={settings.admin_logo_size * 0.5} height={settings.admin_logo_size * 0.5} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                                        <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+                                    </svg>
+                                </div>
                             )}
+                            {/* Name under logo */}
+                            <span className="font-bold text-sm text-center" style={{ color: '#F0EBE0' }}>
+                                {settings.admin_title || 'Kyrkoregistret'}
+                            </span>
                         </div>
                     </div>
                 </SectionCard>
 
-                {/* Login page settings */}
-                <SectionCard icon={<ImageIcon size={16} />} title={t('page.settings.login_section')}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-semibold">{language === 'sv' ? 'Huvudrubrik' : 'Main heading'}</label>
-                            <input className="input-premium" value={settings.login_title} onChange={(e) => set('login_title', e.target.value)} placeholder="Välkommen" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-semibold">{language === 'sv' ? 'Underrubrik' : 'Subtitle'}</label>
-                            <input className="input-premium" value={settings.login_subtitle} onChange={(e) => set('login_subtitle', e.target.value)} placeholder="Logga in på kyrkoregistret" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-semibold">{language === 'sv' ? 'Logotyp storlek (px)' : 'Logo size (px)'}</label>
-                            <input type="range" min="32" max="200" value={settings.login_logo_size} onChange={(e) => set('login_logo_size', Number(e.target.value))} className="w-full mt-3" />
-                            <div className="text-xs text-muted-foreground">{settings.login_logo_size}px</div>
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-semibold">{t('page.settings.upload_logo')} ({language === 'sv' ? 'inloggning' : 'login'})</label>
-                            <div className="flex items-center gap-3">
-                                <input type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
-                                    onChange={(e) => handleFileUpload(e, 'login')} disabled={uploadingLogin}
-                                    className="input-premium cursor-pointer" />
-                                {uploadingLogin && <Loader2 className="animate-spin" size={16} />}
+                {/* ── Inloggningssidans logotyp & texter ───────────────── */}
+                <SectionCard icon={<ImageIcon size={16} />} title={language === 'sv' ? 'Inloggningssidans logotyp & texter' : 'Login page logo & texts'}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Inputs */}
+                        <div className="space-y-4">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-semibold">{language === 'sv' ? 'Huvudrubrik' : 'Main heading'}</label>
+                                <input
+                                    className="input-premium"
+                                    value={settings.login_title}
+                                    onChange={(e) => set('login_title', e.target.value)}
+                                    placeholder="Välkommen"
+                                />
                             </div>
-                            {settings.login_logo_url && (
-                                <img src={settings.login_logo_url} alt="Login logo" style={{ height: settings.login_logo_size }}
-                                    className="mt-2 rounded-lg object-contain border border-border p-2 bg-secondary"
-                                    onError={(e) => (e.currentTarget.style.display = 'none')} />
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-semibold">{language === 'sv' ? 'Underrubrik' : 'Subtitle'}</label>
+                                <input
+                                    className="input-premium"
+                                    value={settings.login_subtitle}
+                                    onChange={(e) => set('login_subtitle', e.target.value)}
+                                    placeholder="Logga in på kyrkoregistret"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-semibold">
+                                    {language === 'sv' ? 'Logotypstorlek' : 'Logo size'} — {settings.login_logo_size}px
+                                </label>
+                                <input
+                                    type="range" min="32" max="200"
+                                    value={settings.login_logo_size}
+                                    onChange={(e) => set('login_logo_size', Number(e.target.value))}
+                                    className="w-full"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-semibold">{t('page.settings.upload_logo')} ({language === 'sv' ? 'inloggning' : 'login'})</label>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+                                        onChange={(e) => handleFileUpload(e, 'login')}
+                                        disabled={uploadingLogin}
+                                        className="input-premium cursor-pointer text-sm"
+                                    />
+                                    {uploadingLogin && <Loader2 className="animate-spin flex-shrink-0" size={16} />}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Preview — logo above name */}
+                        <div className="flex flex-col items-center justify-center rounded-[14px] p-6 gap-2"
+                            style={{ background: '#18181B', minHeight: '180px' }}>
+                            <p className="text-xs mb-1" style={{ color: '#6B6355' }}>
+                                {language === 'sv' ? 'Förhandsvisning' : 'Preview'}
+                            </p>
+                            {settings.login_logo_url ? (
+                                <img
+                                    src={settings.login_logo_url}
+                                    alt="Login logo preview"
+                                    style={{ height: Math.min(settings.login_logo_size, 80), maxWidth: '160px', objectFit: 'contain' }}
+                                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                                />
+                            ) : (
+                                <div className="rounded-2xl flex items-center justify-center"
+                                    style={{ width: 64, height: 64, background: 'linear-gradient(135deg,#C9A84C,#8B6914)' }}>
+                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                                        <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+                                    </svg>
+                                </div>
                             )}
+                            <span className="font-bold text-lg text-center mt-1" style={{ color: '#FEFCF8' }}>
+                                {settings.login_title || 'Välkommen'}
+                            </span>
+                            <span className="text-xs text-center" style={{ color: '#8A8178' }}>
+                                {settings.login_subtitle || 'Logga in på kyrkoregistret'}
+                            </span>
                         </div>
                     </div>
                 </SectionCard>
 
-                {/* Resend email settings */}
-                <SectionCard icon={<Mail size={16} />} title={t('page.settings.email_section')}>
-                    <p className="text-sm text-muted-foreground mb-4">{t('page.settings.resend_desc')}</p>
+                {/* ── E-post via Resend ──────────────────────────────────── */}
+                <SectionCard icon={<Mail size={16} />} title={language === 'sv' ? 'E-post via Resend' : 'Email via Resend'} accent>
+                    <div className="mb-5 p-4 rounded-[10px] border" style={{ background: '#FFFBEB', borderColor: '#FCD34D' }}>
+                        <p className="text-sm font-semibold" style={{ color: '#92400E' }}>
+                            {language === 'sv' ? 'Hur det fungerar' : 'How it works'}
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: '#78350F' }}>
+                            {language === 'sv'
+                                ? 'Systemet använder Resend för att skicka kvitton och påminnelser. Hämta din API-nyckel på resend.com/api-keys och välj en avsändardress från din verifierade domän.'
+                                : 'The system uses Resend to send receipts and reminders. Get your API key at resend.com/api-keys and choose a sender from your verified domain.'}
+                        </p>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* API key — full width */}
                         <div className="space-y-1.5 md:col-span-2">
                             <label className="text-sm font-semibold">{t('page.settings.resend_api_key')}</label>
                             <div className="relative">
@@ -247,44 +352,63 @@ export default function SettingsPage() {
                                     className="input-premium pr-10 font-mono text-sm"
                                     value={settings.resend_api_key}
                                     onChange={(e) => set('resend_api_key', e.target.value)}
-                                    placeholder="re_..."
+                                    placeholder="re_xxxxxxxxxxxxxxxxxxxx"
                                     autoComplete="new-password"
                                 />
-                                <button type="button" onClick={() => setShowApiKey(!showApiKey)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowApiKey(!showApiKey)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                    aria-label={showApiKey ? 'Dölj API-nyckel' : 'Visa API-nyckel'}
+                                >
                                     {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
                                 </button>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                {language === 'sv'
-                                    ? 'Hämta din API-nyckel från resend.com/api-keys'
-                                    : 'Get your API key from resend.com/api-keys'}
+                                <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer"
+                                    className="underline hover:text-foreground transition-colors">
+                                    resend.com/api-keys
+                                </a>
                             </p>
                         </div>
+
+                        {/* From email */}
                         <div className="space-y-1.5">
                             <label className="text-sm font-semibold">{t('page.settings.resend_from_email')}</label>
-                            <input type="email" className="input-premium" value={settings.resend_from_email}
+                            <input
+                                type="email"
+                                className="input-premium"
+                                value={settings.resend_from_email}
                                 onChange={(e) => set('resend_from_email', e.target.value)}
-                                placeholder="noreply@dinkyrka.se" />
+                                placeholder="noreply@dinkyrka.se"
+                            />
                             <p className="text-xs text-muted-foreground">
-                                {language === 'sv' ? 'Måste vara verifierad domän i Resend.' : 'Must be a verified domain in Resend.'}
+                                {language === 'sv' ? 'Måste vara en verifierad domän i Resend.' : 'Must be a verified domain in Resend.'}
                             </p>
                         </div>
+
+                        {/* From name */}
                         <div className="space-y-1.5">
                             <label className="text-sm font-semibold">{t('page.settings.resend_from_name')}</label>
-                            <input className="input-premium" value={settings.resend_from_name}
+                            <input
+                                className="input-premium"
+                                value={settings.resend_from_name}
                                 onChange={(e) => set('resend_from_name', e.target.value)}
-                                placeholder="Kyrkoregistret" />
+                                placeholder="Kyrkoregistret"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                {language === 'sv' ? 'Avsändarnamn som visas i e-postklienten.' : 'Sender name shown in the email client.'}
+                            </p>
                         </div>
                     </div>
                 </SectionCard>
 
-                {/* Save button */}
-                <div className="flex justify-end">
+                {/* Save */}
+                <div className="flex justify-end pb-6">
                     <button
                         type="submit"
                         disabled={saving}
-                        className="flex items-center gap-2 px-6 py-3 rounded-[10px] font-semibold text-primary-foreground disabled:opacity-60 transition-all"
+                        className="flex items-center gap-2 px-6 py-3 rounded-[10px] font-semibold text-primary-foreground disabled:opacity-60 transition-all shadow-sm"
                         style={{ background: saving ? '#6B6355' : '#1A1A1A' }}
                     >
                         {saving ? (
@@ -299,13 +423,28 @@ export default function SettingsPage() {
     )
 }
 
-function SectionCard({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+function SectionCard({
+    icon, title, children, accent = false
+}: {
+    icon: React.ReactNode
+    title: string
+    children: React.ReactNode
+    accent?: boolean
+}) {
     return (
         <div className="bg-card border border-border rounded-[14px] overflow-hidden shadow-sm">
-            <div className="flex items-center gap-2.5 px-6 py-4 border-b border-border font-semibold text-sm"
-                style={{ background: '#F7F3EC' }}>
-                <span style={{ color: '#C9A84C' }}>{icon}</span>
-                {title}
+            <div
+                className="flex items-center gap-2.5 px-6 py-4 border-b border-border font-semibold text-sm"
+                style={{ background: accent ? '#FFF8EE' : '#F7F3EC' }}
+            >
+                <span style={{ color: accent ? '#C9A84C' : '#C9A84C' }}>{icon}</span>
+                <span>{title}</span>
+                {accent && (
+                    <span className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full"
+                        style={{ background: '#FEF3C7', color: '#92400E' }}>
+                        API
+                    </span>
+                )}
             </div>
             <div className="p-6">
                 {children}
