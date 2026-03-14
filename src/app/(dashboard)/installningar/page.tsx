@@ -31,6 +31,8 @@ export default function SettingsPage() {
         resend_from_email: "",
         resend_from_name:  "Kyrkoregistret",
     })
+    // Track which columns actually exist in the DB
+    const [hasResendColumns, setHasResendColumns] = useState(false)
 
     const [uploadingAdmin, setUploadingAdmin] = useState(false)
     const [uploadingLogin, setUploadingLogin] = useState(false)
@@ -47,22 +49,44 @@ export default function SettingsPage() {
             } catch { /* ignore */ }
 
             try {
-                const { data } = await supabase.from('app_settings').select('*').eq('id', 1).single()
+                // Only select known-safe base columns first
+                const { data, error } = await supabase
+                    .from('app_settings')
+                    .select('admin_title, admin_logo_url, admin_logo_size, login_title, login_subtitle, login_logo_url, login_logo_size')
+                    .eq('id', 1)
+                    .single()
                 if (data) {
-                    setSettings({
-                        admin_title:       data.admin_title       ?? "",
-                        admin_logo_url:    data.admin_logo_url    ?? "",
-                        admin_logo_size:   data.admin_logo_size   ?? 32,
-                        login_title:       data.login_title       ?? "",
-                        login_subtitle:    data.login_subtitle    ?? "",
-                        login_logo_url:    data.login_logo_url    ?? "",
-                        login_logo_size:   data.login_logo_size   ?? 64,
+                    setSettings(prev => ({
+                        ...prev,
+                        admin_title:     data.admin_title     ?? "",
+                        admin_logo_url:  data.admin_logo_url  ?? "",
+                        admin_logo_size: data.admin_logo_size ?? 32,
+                        login_title:     data.login_title     ?? "",
+                        login_subtitle:  data.login_subtitle  ?? "",
+                        login_logo_url:  data.login_logo_url  ?? "",
+                        login_logo_size: data.login_logo_size ?? 64,
+                    }))
+                }
+                if (error) console.warn('app_settings load:', error.message)
+            } catch { /* ignore */ }
+
+            // Try to load Resend columns separately — they may not exist yet
+            try {
+                const { data, error } = await supabase
+                    .from('app_settings')
+                    .select('resend_api_key, resend_from_email, resend_from_name')
+                    .eq('id', 1)
+                    .single()
+                if (!error && data) {
+                    setHasResendColumns(true)
+                    setSettings(prev => ({
+                        ...prev,
                         resend_api_key:    data.resend_api_key    ?? "",
                         resend_from_email: data.resend_from_email ?? "",
                         resend_from_name:  data.resend_from_name  ?? "Kyrkoregistret",
-                    })
+                    }))
                 }
-            } catch { /* ignore */ }
+            } catch { /* columns not yet created */ }
 
             setLoading(false)
         }
@@ -75,12 +99,44 @@ export default function SettingsPage() {
         setSaving(true)
         setMessage(null)
         try {
-            const { error } = await supabase.from('app_settings').upsert({
-                id: 1,
-                ...settings,
-                updated_at: new Date().toISOString(),
-            })
-            if (error) throw error
+            // Step 1: Save base settings (always works)
+            const basePayload: Record<string, any> = {
+                id:              1,
+                admin_title:     settings.admin_title,
+                admin_logo_url:  settings.admin_logo_url,
+                admin_logo_size: settings.admin_logo_size,
+                login_title:     settings.login_title,
+                login_subtitle:  settings.login_subtitle,
+                login_logo_url:  settings.login_logo_url,
+                login_logo_size: settings.login_logo_size,
+                updated_at:      new Date().toISOString(),
+            }
+            const { error: baseError } = await supabase.from('app_settings').upsert(basePayload)
+            if (baseError) throw baseError
+
+            // Step 2: Save Resend settings only if columns exist
+            if (hasResendColumns) {
+                const resendPayload: Record<string, any> = {
+                    id:                1,
+                    resend_api_key:    settings.resend_api_key    || null,
+                    resend_from_email: settings.resend_from_email || null,
+                    resend_from_name:  settings.resend_from_name  || 'Kyrkoregistret',
+                    updated_at:        new Date().toISOString(),
+                }
+                const { error: resendError } = await supabase.from('app_settings').upsert(resendPayload)
+                if (resendError) {
+                    // Columns still missing — show migration hint
+                    setMessage({
+                        type: 'error',
+                        text: language === 'sv'
+                            ? 'E-postkonfiguration kunde inte sparas — kör SQL-patchen 01_patch_app_settings_columns.sql i Supabase SQL-editorn.'
+                            : 'Email config could not be saved — run SQL patch 01_patch_app_settings_columns.sql in the Supabase SQL editor.',
+                    })
+                    setSaving(false)
+                    return
+                }
+            }
+
             setMessage({ type: 'success', text: t('page.settings.saved') })
             setTimeout(() => window.location.reload(), 1200)
         } catch (err: any) {
@@ -159,6 +215,24 @@ export default function SettingsPage() {
             </div>
 
             <form onSubmit={handleSave} className="space-y-6">
+                {/* DB migration warning — show if Resend columns are missing */}
+                {!hasResendColumns && (
+                    <div className="p-4 rounded-[10px] border text-sm" style={{ background: '#FFF8EE', borderColor: '#FCD34D', color: '#92400E' }}>
+                        <p className="font-bold mb-1">
+                            {language === 'sv' ? '⚠️ Databas-patch krävs' : '⚠️ Database patch required'}
+                        </p>
+                        <p>
+                            {language === 'sv'
+                                ? 'E-postkolumnerna saknas i databasen. Kör filen '
+                                : 'Email columns are missing from the database. Run the file '}
+                            <code className="font-mono bg-amber-100 px-1 rounded">
+                                supabase/migrations/01_patch_app_settings_columns.sql
+                            </code>
+                            {language === 'sv' ? ' i Supabase SQL-editorn för att aktivera e-postfunktionerna.' : ' in the Supabase SQL editor to enable email features.'}
+                        </p>
+                    </div>
+                )}
+
                 {message && (
                     <div className={`p-4 rounded-[10px] text-sm border font-medium ${
                         message.type === 'success'
@@ -331,6 +405,28 @@ export default function SettingsPage() {
 
                 {/* ── E-post via Resend ──────────────────────────────────── */}
                 <SectionCard icon={<Mail size={16} />} title={language === 'sv' ? 'E-post via Resend' : 'Email via Resend'} accent>
+                    {!hasResendColumns ? (
+                        /* Migration required — fields are locked */
+                        <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
+                                style={{ background: '#FEF3C7' }}>
+                                🔧
+                            </div>
+                            <p className="font-semibold text-sm" style={{ color: '#92400E' }}>
+                                {language === 'sv' ? 'Databas-patch behövs' : 'Database patch needed'}
+                            </p>
+                            <p className="text-xs max-w-sm" style={{ color: '#78350F' }}>
+                                {language === 'sv'
+                                    ? 'Kör SQL-filen nedan i Supabase SQL-editorn, sedan ladda om sidan.'
+                                    : 'Run the SQL file below in the Supabase SQL editor, then reload.'}
+                            </p>
+                            <code className="text-xs px-3 py-1.5 rounded-lg font-mono"
+                                style={{ background: '#FEF9C3', color: '#713F12' }}>
+                                supabase/migrations/01_patch_app_settings_columns.sql
+                            </code>
+                        </div>
+                    ) : (
+                    <>
                     <div className="mb-5 p-4 rounded-[10px] border" style={{ background: '#FFFBEB', borderColor: '#FCD34D' }}>
                         <p className="text-sm font-semibold" style={{ color: '#92400E' }}>
                             {language === 'sv' ? 'Hur det fungerar' : 'How it works'}
@@ -401,6 +497,8 @@ export default function SettingsPage() {
                             </p>
                         </div>
                     </div>
+                    </>
+                    )}
                 </SectionCard>
 
                 {/* Save */}
