@@ -37,6 +37,8 @@ export default function UsersPage() {
     const [loading, setLoading]                 = useState(true)
     const [searchQuery, setSearchQuery]         = useState("")
     const [currentUserRole, setCurrentUserRole] = useState<string>("user")
+    // Detect missing service role key from error messages
+    const [missingServiceKey, setMissingServiceKey] = useState(false)
 
     // Modals
     const [showCreate, setShowCreate]           = useState(false)
@@ -89,9 +91,15 @@ export default function UsersPage() {
         if (result.success) {
             setShowCreate(false)
             setNewEmail(""); setNewPassword(""); setNewRole("user"); setNewPermissions([])
+            setMissingServiceKey(false)
             fetchUsers()
         } else {
-            setErrorMsg(result.error || (language === 'sv' ? 'Ett fel uppstod.' : 'An error occurred.'))
+            const errText = result.error || (language === 'sv' ? 'Ett fel uppstod.' : 'An error occurred.')
+            if (errText.includes('SUPABASE_SERVICE_ROLE_KEY')) {
+                setMissingServiceKey(true)
+                setShowCreate(false)
+            }
+            setErrorMsg(errText)
         }
         setIsSubmitting(false)
     }
@@ -149,12 +157,61 @@ export default function UsersPage() {
 
     return (
         <div>
+            {/* Service Role Key missing — persistent banner */}
+            {missingServiceKey && (
+                <div className="mb-5 p-4 rounded-[14px] border text-sm" style={{ background: '#FEF2F2', borderColor: '#FECACA', color: '#991B1B' }}>
+                    <p className="font-bold mb-2">
+                        🔑 {language === 'sv' ? 'SUPABASE_SERVICE_ROLE_KEY saknas' : 'SUPABASE_SERVICE_ROLE_KEY is missing'}
+                    </p>
+                    <p className="mb-3">
+                        {language === 'sv'
+                            ? 'Denna nyckel krävs för att skapa och radera användare. Följ stegen:'
+                            : 'This key is required to create and delete users. Follow these steps:'}
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-xs" style={{ color: '#7F1D1D' }}>
+                        <li>
+                            {language === 'sv' ? 'Gå till ' : 'Go to '}
+                            <strong>Supabase Dashboard → Settings → API</strong>
+                        </li>
+                        <li>
+                            {language === 'sv' ? 'Kopiera ' : 'Copy '}
+                            <strong>service_role</strong>
+                            {language === 'sv' ? '-nyckeln (secret)' : ' key (secret)'}
+                        </li>
+                        <li>
+                            {language === 'sv' ? 'Skapa/öppna filen ' : 'Create/open the file '}
+                            <code className="font-mono bg-red-100 px-1 rounded">.env.local</code>
+                            {language === 'sv' ? ' i projektets rotmapp' : ' in your project root'}
+                        </li>
+                        <li>
+                            {language === 'sv' ? 'Lägg till raden:' : 'Add the line:'}
+                            <code className="block font-mono bg-red-100 px-2 py-1 rounded mt-1 text-xs">
+                                SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...din-nyckel
+                            </code>
+                        </li>
+                        <li>
+                            {language === 'sv' ? 'Starta om dev-servern med ' : 'Restart the dev server with '}
+                            <code className="font-mono bg-red-100 px-1 rounded">npm run dev</code>
+                        </li>
+                    </ol>
+                    <p className="mt-3 text-xs" style={{ color: '#7F1D1D' }}>
+                        {language === 'sv'
+                            ? 'Se filen .env.local.example i projektroten för en komplett mall.'
+                            : 'See .env.local.example in the project root for a complete template.'}
+                    </p>
+                </div>
+            )}
+
+            {errorMsg && !missingServiceKey && (
+                <div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded-[10px] text-sm">{errorMsg}</div>
+            )}
+
             <div className="page-header flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">{t('page.users.title')}</h1>
                     <p className="text-muted-foreground text-sm mt-1">{t('page.users.desc')}</p>
                 </div>
-                <button onClick={() => { setErrorMsg(""); setShowCreate(true) }}
+                <button onClick={() => { setErrorMsg(""); setMissingServiceKey(false); setShowCreate(true) }}
                     className="flex items-center gap-2 px-4 py-2 rounded-[10px] text-sm font-semibold text-primary-foreground"
                     style={{ background: '#1A1A1A' }}>
                     <Plus size={15} /> {t('page.users.add')}

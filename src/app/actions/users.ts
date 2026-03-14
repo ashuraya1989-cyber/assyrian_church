@@ -10,8 +10,19 @@ function getServiceRoleClient() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-        throw new Error('Missing Supabase Environment Variables. SUPABASE_SERVICE_ROLE_KEY is required for admin actions.')
+    if (!supabaseUrl) {
+        throw new Error(
+            'NEXT_PUBLIC_SUPABASE_URL saknas i miljövariabler. ' +
+            'Lägg till den i .env.local — se .env.local.example för instruktioner.'
+        )
+    }
+
+    if (!supabaseServiceKey) {
+        throw new Error(
+            'SUPABASE_SERVICE_ROLE_KEY saknas i miljövariabler. ' +
+            'Hämta den från: Supabase Dashboard → Settings → API → service_role (secret). ' +
+            'Lägg sedan till den i din .env.local-fil: SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...'
+        )
     }
 
     return createSupabaseClient(supabaseUrl, supabaseServiceKey, {
