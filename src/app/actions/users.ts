@@ -3,6 +3,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { logAuditAction } from './audit'
 
 // We need a Service Role client to bypass RLS and create/delete users
 // without logging out the current admin user.
@@ -117,6 +118,8 @@ export async function createUserAction(formData: FormData) {
 
         if (updateError) throw updateError
 
+        await logAuditAction('create', 'user', authData.user.id, { email, role })
+
         return { success: true, message: 'Användare skapad framgångsrikt!' }
     } catch (error: any) {
         console.error("Error creating user:", error)
@@ -183,6 +186,8 @@ export async function deleteUserAction(userId: string) {
         const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
         if (error) throw error
+
+        await logAuditAction('delete', 'user', userId, { role: targetUser?.role ?? 'unknown' })
 
         return { success: true }
     } catch (error: any) {

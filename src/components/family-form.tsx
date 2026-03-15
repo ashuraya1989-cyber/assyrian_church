@@ -4,6 +4,7 @@ import { useState, useMemo } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { X, Plus, Trash2, Loader2 } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
+import { logAuditAction } from "@/app/actions/audit"
 
 interface FamilyFormProps {
     onClose: () => void
@@ -74,12 +75,14 @@ export function FamilyForm({ onClose, onSuccess, initialData }: FamilyFormProps)
                     children_data: childrenPayload,
                 })
                 if (rpcError) throw rpcError
+                logAuditAction('update', 'family', String(familyData.id), { familje_namn: familyData.familje_namn })
             } else {
-                const { data: id, error: rpcError } = await supabase.rpc('add_family_with_children', {
+                const { data: newId, error: rpcError } = await supabase.rpc('add_family_with_children', {
                     family_data:   familyData,
                     children_data: childrenPayload,
                 })
                 if (rpcError) throw rpcError
+                logAuditAction('create', 'family', String(newId ?? ''), { familje_namn: familyData.familje_namn })
             }
             onSuccess()
         } catch (err: any) {

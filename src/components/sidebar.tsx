@@ -22,6 +22,7 @@ import { createClient } from "@/utils/supabase/client"
 import { useLanguage } from "@/components/language-provider"
 import { useEffect, useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import { logAuditAction } from "@/app/actions/audit"
 
 const navItems = [
     { key: "nav.dashboard",  href: "/",            icon: LayoutDashboard },
@@ -88,7 +89,10 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
     }, [supabase])
 
     const handleLogout = async () => {
-        if (supabase) await supabase.auth.signOut()
+        if (supabase) {
+            await logAuditAction('logout', 'auth', '', { email: userEmail })
+            await supabase.auth.signOut()
+        }
         router.push("/login")
     }
 

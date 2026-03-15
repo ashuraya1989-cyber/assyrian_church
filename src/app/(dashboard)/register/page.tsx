@@ -9,6 +9,7 @@ import {
 import { FamilyForm } from "@/components/family-form"
 import { useLanguage } from "@/components/language-provider"
 import { exportToExcel, exportToPDF } from "@/lib/export"
+import { logAuditAction } from "@/app/actions/audit"
 
 interface Family {
     id: string
@@ -90,7 +91,10 @@ export default function RegisterPage() {
     const confirmDelete = async () => {
         if (!selectedFamily || !supabase) return
         setActionLoading(true)
-        await supabase.from('familjer').delete().eq('id', selectedFamily.id)
+        const { error } = await supabase.from('familjer').delete().eq('id', selectedFamily.id)
+        if (!error) {
+            logAuditAction('delete', 'family', String(selectedFamily.id), { familje_namn: selectedFamily.familje_namn })
+        }
         setActionLoading(false)
         setDeleteMode(false)
         setSelectedFamily(null)

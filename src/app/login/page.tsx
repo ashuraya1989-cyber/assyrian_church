@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { LogIn, Eye, EyeOff } from "lucide-react"
+import { logAuditAction } from "@/app/actions/audit"
 
 export default function LoginPage() {
     const supabase = useMemo(() => {
@@ -54,6 +55,7 @@ export default function LoginPage() {
         try {
             const { error } = await supabase.auth.signInWithPassword({ email, password })
             if (error) throw error
+            logAuditAction('login', 'auth', '', { email })
             window.location.href = "/register"
         } catch (err: any) {
             setError(err.message || "Felaktigt e-post eller lösenord.")

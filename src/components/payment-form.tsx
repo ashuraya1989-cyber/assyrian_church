@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client"
 import { X, Mail, CheckCircle2 } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { sendPaymentReceiptAction } from "@/app/actions/email"
+import { logAuditAction } from "@/app/actions/audit"
 
 interface PaymentFormProps {
     onClose: () => void
@@ -117,6 +118,11 @@ export function PaymentForm({ onClose, onSuccess, initialData, selectedFamilyId 
                     .eq('id', formData.id)
                 if (err) throw err
                 newPaymentId = formData.id
+                logAuditAction('update', 'payment', String(formData.id), {
+                    familj_id: formData.familj_id,
+                    summan: formData.summan,
+                    betalat_via: formData.betalat_via,
+                })
             } else {
                 const { data, error: err } = await supabase
                     .from('betalningar')
@@ -132,6 +138,11 @@ export function PaymentForm({ onClose, onSuccess, initialData, selectedFamilyId 
                     .select()
                 if (err) throw err
                 newPaymentId = data?.[0]?.id ?? null
+                logAuditAction('create', 'payment', String(newPaymentId ?? ''), {
+                    familj_id: formData.familj_id,
+                    summan: formData.summan,
+                    betalat_via: formData.betalat_via,
+                })
             }
 
             // Send receipt if requested

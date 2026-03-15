@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { Save, Loader2, Mail, Image as ImageIcon, Shield, Eye, EyeOff, Type } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
+import { logAuditAction } from "@/app/actions/audit"
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
 const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB
@@ -137,6 +138,7 @@ export default function SettingsPage() {
                 }
             }
 
+            logAuditAction('settings', 'settings', '1', { admin_title: settings.admin_title })
             setMessage({ type: 'success', text: t('page.settings.saved') })
             setTimeout(() => window.location.reload(), 1200)
         } catch (err: any) {
