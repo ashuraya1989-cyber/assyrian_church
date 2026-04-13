@@ -47,7 +47,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
     const pathname = usePathname()
     const router = useRouter()
     const { language, setLanguage, t } = useLanguage()
-    const { activeOrgName, activeOrgLogo, activeOrgColor } = useActiveOrg()
+    const { activeOrgId, activeOrgName, activeOrgLogo, activeOrgColor } = useActiveOrg()
     const [adminTitle, setAdminTitle]   = useState("Kyrkoregistret")
     const [adminLogoUrl, setAdminLogoUrl] = useState<string | null>(null)
     const [adminLogoSize, setAdminLogoSize] = useState(32)
@@ -56,13 +56,14 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
     const [userEmail, setUserEmail] = useState("")
 
     useEffect(() => {
-        if (!supabase) return
+        if (!supabase || !activeOrgId) return
 
         const fetchSettings = async () => {
             try {
                 const { data } = await supabase
                     .from('app_settings')
                     .select('admin_title, admin_logo_url, admin_logo_size')
+                    .eq('organisation_id', activeOrgId)
                     .limit(1)
                     .single()
                 if (data?.admin_title) setAdminTitle(data.admin_title)
@@ -91,7 +92,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
 
         fetchSettings()
         fetchUserProfile()
-    }, [supabase])
+    }, [supabase, activeOrgId])
 
     const handleLogout = async () => {
         if (supabase) {
