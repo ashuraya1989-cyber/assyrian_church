@@ -1,0 +1,605 @@
+"use client"
+
+import React, { createContext, useContext, useState, useEffect } from 'react'
+
+type Language = 'sv' | 'en'
+
+interface LanguageContextType {
+    language: Language
+    setLanguage: (lang: Language) => void
+    t: (key: string) => string
+}
+
+const translations = {
+    sv: {
+        // Navigation
+        "nav.dashboard":    "Summering",
+        "nav.register":     "Register",
+        "nav.payments":     "Betalningar",
+        "nav.expenses":     "Utgifter",
+        "nav.income":       "Intäkter",
+        "nav.stats":        "Statistik",
+        "nav.settings":     "Inställningar",
+        "nav.users":        "Användare",
+        "nav.logs":         "Aktivitetsloggar",
+        "nav.logout":       "Logga ut",
+        "app.title":        "Kyrkoregistret",
+
+        // Common
+        "common.search":    "Sök...",
+        "common.cancel":    "Avbryt",
+        "common.save":      "Spara",
+        "common.edit":      "Redigera",
+        "common.delete":    "Radera",
+        "common.view":      "Visa",
+        "common.loading":   "Laddar...",
+        "common.confirm":   "Bekräfta",
+        "common.yes":       "Ja",
+        "common.no":        "Nej",
+        "common.close":     "Stäng",
+        "common.export":    "Exportera",
+        "common.export_excel": "Exportera Excel",
+        "common.export_pdf":   "Exportera PDF",
+        "common.send_email":   "Skicka e-post",
+        "common.send_reminder": "Skicka påminnelse",
+
+        // Export
+        "export.members":    "Exportera medlemmar",
+        "export.payments":   "Exportera betalningar",
+        "export.expenses":   "Exportera utgifter",
+        "export.income":     "Exportera intäkter",
+        "export.all":        "Exportera alla",
+
+        // Register page
+        "page.register.title":  "Familjeregister",
+        "page.register.desc":   "Hantera föreningens medlemmar och familjer.",
+        "page.register.add":    "Lägg till familj",
+        "page.register.search": "Sök på efternamn, namn eller ort...",
+
+        // Table headers
+        "table.family_name":          "Familjenamn",
+        "table.parents":              "Föräldrar",
+        "table.mobile":               "Mobil",
+        "table.city":                 "Ort",
+        "table.actions":              "Åtgärder",
+        "table.empty_search":         "Inga familjer matchar din sökning.",
+        "table.empty_register":       "Inga familjer registrerade än.",
+        "table.family":               "Familj",
+        "table.monthly_fee":          "Månadsavgift",
+        "table.yearly_fee":           "Årsavgift",
+        "table.paid_until":           "Betalat till",
+        "table.status":               "Status",
+        "table.empty_records":        "Inga poster hittades.",
+        "table.total":                "Total",
+        "table.email":                "E-post",
+        "table.role":                 "Roll",
+        "table.username":             "Användarnamn",
+        "table.empty_users_search":   "Inga användare matchar din sökning.",
+        "table.empty_users_register": "Inga användare registrerade än.",
+        "table.date":                 "Datum",
+        "table.amount":               "Belopp",
+        "table.category":             "Kategori",
+        "table.week":                 "Vecka",
+
+        // Dashboard
+        "page.dashboard.title":              "Summering",
+        "page.dashboard.desc":               "Övergripande ekonomisk status för föreningen.",
+        "page.dashboard.total_income":       "Totala Intäkter",
+        "page.dashboard.from_all_sources":   "Från alla källor",
+        "page.dashboard.total_expenses":     "Totala Utgifter",
+        "page.dashboard.rent_bills":         "Hyra, räkningar etc.",
+        "page.dashboard.net_balance":        "Resterande (Netto)",
+        "page.dashboard.cash_balance":       "Saldot i kassan",
+        "page.dashboard.membership":         "Medlemskap",
+        "page.dashboard.registered_families":"Registrerade familjer",
+        "page.dashboard.registered_members": "Registrerade medlemmar",
+
+        // Payments
+        "page.payments.title":    "Betalningar",
+        "page.payments.desc":     "Följ upp medlemsavgifter och betalningsstatus.",
+        "page.payments.register": "Registrera betalning",
+        "page.payments.search":   "Sök på familjenamn...",
+        "action.manage":          "Hantera",
+        "action.send_reminder":   "Skicka påminnelse",
+        "action.send_receipt":    "Skicka kvitto",
+
+        // Payment statuses
+        "status.unpaid":      "Obetald",
+        "status.overdue":     "Förfallen",
+        "status.soon_overdue":"Snart förfaller",
+        "status.up_to_date":  "Betald",
+        "status.active":      "Aktiv",
+        "status.inactive":    "Inaktiv",
+
+        // Income
+        "page.income.title":           "Intäkter",
+        "page.income.desc":            "Registrera och följ upp föreningens intäkter.",
+        "page.income.new":             "Ny intäktspost",
+        "page.income.weekly":          "Veckovisa intäkter",
+        "page.income.all_months":      "Alla månader",
+        "page.income.date_month":      "Datum/Månad",
+        "page.income.week":            "Vecka",
+        "page.income.category":        "Kategori (Avg/Gåv/Ung/And)",
+        "page.income.empty":           "Inga intäkter registrerade.",
+        "page.income.summary":         "Månadssammanfattning",
+        "page.income.membership_fees": "Medlemsavgifter",
+        "page.income.gifts":           "Gåvor",
+        "page.income.youth":           "Ungdomsverksamhet",
+        "page.income.other":           "Annat",
+        "page.income.select_month":    "Välj en månad för att se sammanfattning.",
+        "page.income.new_title":       "Ny intäkt",
+        "page.income.month":           "Månad",
+        "page.income.reported_by":     "Rapporterat av",
+        "page.income.date":            "Datum",
+
+        // Statistics
+        "page.stats.title":           "Statistik",
+        "page.stats.desc":            "Månatlig översikt av intäkter och utgifter.",
+        "page.stats.income_vs_expenses":"Intäkter vs Utgifter",
+        "page.stats.income_tooltip":  "Intäkt:",
+        "page.stats.expense_tooltip": "Utgift:",
+        "page.stats.label_income":    "Intäkter",
+        "page.stats.label_expenses":  "Utgifter",
+
+        // Expenses
+        "page.expenses.title":       "Utgifter",
+        "page.expenses.desc":        "Registrera och följ upp föreningens utgifter.",
+        "page.expenses.new":         "Ny utgiftspost",
+        "page.expenses.weekly":      "Veckovisa utgifter",
+        "page.expenses.all_months":  "Alla månader",
+        "page.expenses.date_month":  "Datum/Månad",
+        "page.expenses.week":        "Vecka",
+        "page.expenses.category":    "Kategori (Hyra/Fru/Räk/And)",
+        "page.expenses.empty":       "Inga utgifter registrerade.",
+        "page.expenses.summary":     "Månadssammanfattning",
+        "page.expenses.rent":        "Hyra",
+        "page.expenses.breakfast":   "Frukost",
+        "page.expenses.bills":       "Räkningar",
+        "page.expenses.other":       "Annat",
+        "page.expenses.select_month":"Välj en månad för att se sammanfattning.",
+        "page.expenses.new_title":   "Ny utgift",
+        "page.expenses.month":       "Månad",
+        "page.expenses.reported_by": "Rapporterat av",
+        "page.expenses.date":        "Datum",
+
+        // Family form
+        "form.family.edit_title":         "Redigera familj",
+        "form.family.add_title":          "Lägg till ny familj",
+        "form.family.error_mandatory":    "Fyll i alla obligatoriska fält korrekt. Personnummer måste vara 12 siffror.",
+        "form.family.confirm_no_husband": "Fortsätt utan att fylla i Make?",
+        "form.family.confirm_no_wife":    "Fortsätt utan att fylla i Hustru?",
+        "form.family.confirm_save":       "Spara familjen i registret?",
+        "form.family.error_save":         "Ett fel uppstod vid sparande.",
+        "form.family.main_info":          "Huvudinformation",
+        "form.family.family_name":        "Familjenamn",
+        "form.family.mobile":             "Mobil",
+        "form.family.email":              "E-post",
+        "form.family.address":            "Adress",
+        "form.family.city":               "Ort",
+        "form.family.zip":                "Postnummer",
+        "form.family.country":            "Land",
+        "form.family.country_sweden":     "Sverige",
+        "form.family.country_denmark":    "Danmark",
+        "form.family.country_norway":     "Norge",
+        "form.family.country_finland":    "Finland",
+        "form.family.country_germany":    "Tyskland",
+        "form.family.country_usa":        "USA",
+        "form.family.country_uk":         "Storbritannien",
+        "form.family.country_other":      "Annat",
+        "form.family.adults":             "Vuxna",
+        "form.family.husband_name":       "Make (Namn)",
+        "form.family.wife_name":          "Hustru (Namn)",
+        "form.family.ssn":                "Personnummer (12 siffror)",
+        "form.family.fee":                "Avgift (SEK)",
+        "form.family.children_max":       "Barn (Max 6)",
+        "form.family.add_child":          "Lägg till barn",
+        "form.family.child_name":         "Namn (Barn",
+        "form.family.child_placeholder":  "Barnets namn",
+        "form.family.no_children":        "Inga barn tillagda. Klicka på \"Lägg till barn\".",
+        "form.family.saving":             "Sparar...",
+        "form.family.btn_update":         "Uppdatera familj",
+        "form.family.btn_save":           "Spara familj",
+
+        // Payment form
+        "form.payment.error_select_family":"Välj en familj.",
+        "form.payment.error_save":        "Ett fel uppstod.",
+        "form.payment.edit_title":        "Redigera betalning",
+        "form.payment.add_title":         "Registrera ny betalning",
+        "form.payment.family_label":      "Familj",
+        "form.payment.family_placeholder":"-- Välj familj --",
+        "form.payment.est_monthly":       "Estimerad Månadsavgift",
+        "form.payment.est_yearly":        "Estimerad Årsavgift",
+        "form.payment.paid_amount":       "Betalad summa (kr)",
+        "form.payment.paid_via":          "Betalat via",
+        "form.payment.swish":             "Swish",
+        "form.payment.bank_transfer":     "Banköverföring",
+        "form.payment.cash":              "Kontant",
+        "form.payment.other":             "Annat",
+        "form.payment.valid_until":       "Giltig till datum",
+        "form.payment.valid_desc":        "Medlemskapet giltigt till detta datum.",
+        "form.payment.ref":               "Betalningsreferens (valfri)",
+        "form.payment.ref_placeholder":   "T.ex. Swish-nr eller kvitto-ID",
+        "form.payment.saving":            "Sparar...",
+        "form.payment.btn_save":          "Spara betalning",
+        "form.payment.send_receipt":      "Skicka kvitto via e-post",
+        "form.payment.receipt_email":     "E-post för kvitto",
+        "form.payment.receipt_sent":      "Kvitto skickat!",
+        "form.payment.receipt_error":     "Kunde inte skicka kvitto.",
+
+        // User management
+        "page.users.title":     "Användarhantering",
+        "page.users.desc":      "Hantera användare och deras behörigheter.",
+        "page.users.add":       "Lägg till användare",
+        "page.users.search":    "Sök på namn eller e-post...",
+        "form.user.edit_title": "Redigera användare",
+        "form.user.add_title":  "Lägg till ny användare",
+        "form.user.error_mandatory":"Fyll i alla obligatoriska fält.",
+        "form.user.confirm_save":  "Spara användaren?",
+        "form.user.error_save":    "Ett fel uppstod vid sparande.",
+        "form.user.main_info":     "Användarinformation",
+        "form.user.username":      "Användarnamn",
+        "form.user.email":         "E-post",
+        "form.user.password":      "Lösenord (min 8 tecken)",
+        "form.user.role":          "Roll",
+        "form.user.role_superadmin":"Superadmin",
+        "form.user.role_admin":    "Administratör",
+        "form.user.role_user":     "Användare",
+        "form.user.status":        "Status",
+        "form.user.status_active": "Aktiv",
+        "form.user.status_inactive":"Inaktiv",
+        "form.user.saving":        "Sparar...",
+        "form.user.btn_update":    "Uppdatera användare",
+        "form.user.btn_save":      "Spara användare",
+
+        // Settings
+        "page.settings.title":           "Inställningar",
+        "page.settings.desc":            "Anpassa systemet och e-postintegrationer.",
+        "page.settings.login_section":   "Inloggningssida",
+        "page.settings.admin_section":   "Adminpanel",
+        "page.settings.email_section":   "E-post (Resend)",
+        "page.settings.resend_api_key":  "Resend API-nyckel",
+        "page.settings.resend_from_email":"Avsändar-e-post",
+        "page.settings.resend_from_name":"Avsändarnamn",
+        "page.settings.resend_desc":     "Konfiguration för att skicka kvitton och påminnelser via Resend.",
+        "page.settings.save":            "Spara inställningar",
+        "page.settings.saved":           "Inställningar sparade!",
+        "page.settings.error":           "Fel vid sparande.",
+        "page.settings.upload_logo":     "Ladda upp logotyp",
+
+        // Audit logs
+        "page.logs.title":    "Aktivitetsloggar",
+        "page.logs.desc":     "Alla inloggningar och åtgärder i systemet.",
+        "table.logs.user":    "Användare",
+        "table.logs.action":  "Åtgärd",
+        "table.logs.resource":"Resurs",
+        "table.logs.details": "Detaljer",
+        "table.logs.time":    "Tid",
+        "table.logs.empty":   "Inga loggar hittades.",
+
+        // Email reminders
+        "reminder.title":         "Skicka betalningspåminnelse",
+        "reminder.desc":          "Skicka ett påminnelsemail till familjer med förfallna betalningar.",
+        "reminder.send":          "Skicka påminnelse",
+        "reminder.sending":       "Skickar...",
+        "reminder.sent":          "Påminnelse skickad!",
+        "reminder.error":         "Kunde inte skicka påminnelse.",
+        "reminder.no_email":      "Familjen har ingen e-postadress registrerad.",
+    },
+    en: {
+        // Navigation
+        "nav.dashboard":    "Dashboard",
+        "nav.register":     "Register",
+        "nav.payments":     "Payments",
+        "nav.expenses":     "Expenses",
+        "nav.income":       "Income",
+        "nav.stats":        "Statistics",
+        "nav.settings":     "Settings",
+        "nav.users":        "Users",
+        "nav.logs":         "Activity Logs",
+        "nav.logout":       "Log out",
+        "app.title":        "Church Registry",
+
+        // Common
+        "common.search":       "Search...",
+        "common.cancel":       "Cancel",
+        "common.save":         "Save",
+        "common.edit":         "Edit",
+        "common.delete":       "Delete",
+        "common.view":         "View",
+        "common.loading":      "Loading...",
+        "common.confirm":      "Confirm",
+        "common.yes":          "Yes",
+        "common.no":           "No",
+        "common.close":        "Close",
+        "common.export":       "Export",
+        "common.export_excel": "Export Excel",
+        "common.export_pdf":   "Export PDF",
+        "common.send_email":   "Send email",
+        "common.send_reminder":"Send reminder",
+
+        // Export
+        "export.members":  "Export members",
+        "export.payments": "Export payments",
+        "export.expenses": "Export expenses",
+        "export.income":   "Export income",
+        "export.all":      "Export all",
+
+        // Register page
+        "page.register.title":  "Family Registry",
+        "page.register.desc":   "Manage the association's members and families.",
+        "page.register.add":    "Add family",
+        "page.register.search": "Search by surname, name or city...",
+
+        // Table headers
+        "table.family_name":          "Family Name",
+        "table.parents":              "Parents",
+        "table.mobile":               "Mobile",
+        "table.city":                 "City",
+        "table.actions":              "Actions",
+        "table.empty_search":         "No families match your search.",
+        "table.empty_register":       "No families registered yet.",
+        "table.family":               "Family",
+        "table.monthly_fee":          "Monthly Fee",
+        "table.yearly_fee":           "Annual Fee",
+        "table.paid_until":           "Paid Until",
+        "table.status":               "Status",
+        "table.empty_records":        "No records found.",
+        "table.total":                "Total",
+        "table.email":                "Email",
+        "table.role":                 "Role",
+        "table.username":             "Username",
+        "table.empty_users_search":   "No users match your search.",
+        "table.empty_users_register": "No users registered yet.",
+        "table.date":                 "Date",
+        "table.amount":               "Amount",
+        "table.category":             "Category",
+        "table.week":                 "Week",
+
+        // Dashboard
+        "page.dashboard.title":               "Dashboard",
+        "page.dashboard.desc":                "Overall financial status of the association.",
+        "page.dashboard.total_income":        "Total Income",
+        "page.dashboard.from_all_sources":    "From all sources",
+        "page.dashboard.total_expenses":      "Total Expenses",
+        "page.dashboard.rent_bills":          "Rent, bills etc.",
+        "page.dashboard.net_balance":         "Remaining (Net)",
+        "page.dashboard.cash_balance":        "Cash balance",
+        "page.dashboard.membership":          "Membership",
+        "page.dashboard.registered_families": "Registered families",
+        "page.dashboard.registered_members":  "Registered members",
+
+        // Payments
+        "page.payments.title":    "Payments",
+        "page.payments.desc":     "Track membership fees and payment status.",
+        "page.payments.register": "Register payment",
+        "page.payments.search":   "Search by family name...",
+        "action.manage":          "Manage",
+        "action.send_reminder":   "Send reminder",
+        "action.send_receipt":    "Send receipt",
+
+        // Statuses
+        "status.unpaid":       "Unpaid",
+        "status.overdue":      "Overdue",
+        "status.soon_overdue": "Expiring soon",
+        "status.up_to_date":   "Paid",
+        "status.active":       "Active",
+        "status.inactive":     "Inactive",
+
+        // Income
+        "page.income.title":           "Income",
+        "page.income.desc":            "Register and track the association's income.",
+        "page.income.new":             "New income record",
+        "page.income.weekly":          "Weekly income",
+        "page.income.all_months":      "All months",
+        "page.income.date_month":      "Date/Month",
+        "page.income.week":            "Week",
+        "page.income.category":        "Category (Fee/Gift/Yth/Oth)",
+        "page.income.empty":           "No income registered.",
+        "page.income.summary":         "Monthly summary",
+        "page.income.membership_fees": "Membership fees",
+        "page.income.gifts":           "Gifts",
+        "page.income.youth":           "Youth activities",
+        "page.income.other":           "Other",
+        "page.income.select_month":    "Select a month to see summary.",
+        "page.income.new_title":       "New income",
+        "page.income.month":           "Month",
+        "page.income.reported_by":     "Reported by",
+        "page.income.date":            "Date",
+
+        // Statistics
+        "page.stats.title":             "Statistics",
+        "page.stats.desc":              "Monthly overview of income and expenses.",
+        "page.stats.income_vs_expenses":"Income vs Expenses",
+        "page.stats.income_tooltip":    "Income:",
+        "page.stats.expense_tooltip":   "Expense:",
+        "page.stats.label_income":      "Income",
+        "page.stats.label_expenses":    "Expenses",
+
+        // Expenses
+        "page.expenses.title":        "Expenses",
+        "page.expenses.desc":         "Register and track the association's expenses.",
+        "page.expenses.new":          "New expense record",
+        "page.expenses.weekly":       "Weekly expenses",
+        "page.expenses.all_months":   "All months",
+        "page.expenses.date_month":   "Date/Month",
+        "page.expenses.week":         "Week",
+        "page.expenses.category":     "Category (Rent/Brfst/Bills/Other)",
+        "page.expenses.empty":        "No expenses registered.",
+        "page.expenses.summary":      "Monthly summary",
+        "page.expenses.rent":         "Rent",
+        "page.expenses.breakfast":    "Breakfast",
+        "page.expenses.bills":        "Bills",
+        "page.expenses.other":        "Other",
+        "page.expenses.select_month": "Select a month to see summary.",
+        "page.expenses.new_title":    "New expense",
+        "page.expenses.month":        "Month",
+        "page.expenses.reported_by":  "Reported by",
+        "page.expenses.date":         "Date",
+
+        // Family form
+        "form.family.edit_title":         "Edit family",
+        "form.family.add_title":          "Add new family",
+        "form.family.error_mandatory":    "Fill in all mandatory fields. SSN must be 12 digits.",
+        "form.family.confirm_no_husband": "Continue without Husband field?",
+        "form.family.confirm_no_wife":    "Continue without Wife field?",
+        "form.family.confirm_save":       "Save family to registry?",
+        "form.family.error_save":         "An error occurred while saving.",
+        "form.family.main_info":          "Main Information",
+        "form.family.family_name":        "Family surname",
+        "form.family.mobile":             "Mobile",
+        "form.family.email":              "Email",
+        "form.family.address":            "Address",
+        "form.family.city":               "City",
+        "form.family.zip":                "Zip code",
+        "form.family.country":            "Country",
+        "form.family.country_sweden":     "Sweden",
+        "form.family.country_denmark":    "Denmark",
+        "form.family.country_norway":     "Norway",
+        "form.family.country_finland":    "Finland",
+        "form.family.country_germany":    "Germany",
+        "form.family.country_usa":        "USA",
+        "form.family.country_uk":         "UK",
+        "form.family.country_other":      "Other",
+        "form.family.adults":             "Adults",
+        "form.family.husband_name":       "Husband (Name)",
+        "form.family.wife_name":          "Wife (Name)",
+        "form.family.ssn":                "Social Security Number (12 digits)",
+        "form.family.fee":                "Fee (SEK)",
+        "form.family.children_max":       "Children (Max 6)",
+        "form.family.add_child":          "Add child",
+        "form.family.child_name":         "Name (Child",
+        "form.family.child_placeholder":  "Child's name",
+        "form.family.no_children":        "No children added. Click 'Add child'.",
+        "form.family.saving":             "Saving...",
+        "form.family.btn_update":         "Update family",
+        "form.family.btn_save":           "Save family",
+
+        // Payment form
+        "form.payment.error_select_family":"Please select a family.",
+        "form.payment.error_save":        "An error occurred.",
+        "form.payment.edit_title":        "Edit payment",
+        "form.payment.add_title":         "Register new payment",
+        "form.payment.family_label":      "Family",
+        "form.payment.family_placeholder":"-- Select family --",
+        "form.payment.est_monthly":       "Estimated Monthly Fee",
+        "form.payment.est_yearly":        "Estimated Annual Fee",
+        "form.payment.paid_amount":       "Paid amount (SEK)",
+        "form.payment.paid_via":          "Paid via",
+        "form.payment.swish":             "Swish",
+        "form.payment.bank_transfer":     "Bank Transfer",
+        "form.payment.cash":              "Cash",
+        "form.payment.other":             "Other",
+        "form.payment.valid_until":       "Valid until date",
+        "form.payment.valid_desc":        "Membership is valid until this date.",
+        "form.payment.ref":               "Payment reference (optional)",
+        "form.payment.ref_placeholder":   "E.g. Swish number or receipt ID",
+        "form.payment.saving":            "Saving...",
+        "form.payment.btn_save":          "Save payment",
+        "form.payment.send_receipt":      "Send receipt via email",
+        "form.payment.receipt_email":     "Receipt email address",
+        "form.payment.receipt_sent":      "Receipt sent!",
+        "form.payment.receipt_error":     "Could not send receipt.",
+
+        // User management
+        "page.users.title":      "User Management",
+        "page.users.desc":       "Manage users and their permissions.",
+        "page.users.add":        "Add user",
+        "page.users.search":     "Search by name or email...",
+        "form.user.edit_title":  "Edit user",
+        "form.user.add_title":   "Add new user",
+        "form.user.error_mandatory":"Fill in all mandatory fields.",
+        "form.user.confirm_save":   "Save the user?",
+        "form.user.error_save":     "An error occurred while saving.",
+        "form.user.main_info":      "User Information",
+        "form.user.username":       "Username",
+        "form.user.email":          "Email",
+        "form.user.password":       "Password (min 8 chars)",
+        "form.user.role":           "Role",
+        "form.user.role_superadmin":"Superadmin",
+        "form.user.role_admin":     "Administrator",
+        "form.user.role_user":      "User",
+        "form.user.status":         "Status",
+        "form.user.status_active":  "Active",
+        "form.user.status_inactive":"Inactive",
+        "form.user.saving":         "Saving...",
+        "form.user.btn_update":     "Update user",
+        "form.user.btn_save":       "Save user",
+
+        // Settings
+        "page.settings.title":           "Settings",
+        "page.settings.desc":            "Customize the system and email integrations.",
+        "page.settings.login_section":   "Login Page",
+        "page.settings.admin_section":   "Admin Panel",
+        "page.settings.email_section":   "Email (Resend)",
+        "page.settings.resend_api_key":  "Resend API Key",
+        "page.settings.resend_from_email":"Sender Email",
+        "page.settings.resend_from_name":"Sender Name",
+        "page.settings.resend_desc":     "Configuration for sending receipts and reminders via Resend.",
+        "page.settings.save":            "Save settings",
+        "page.settings.saved":           "Settings saved!",
+        "page.settings.error":           "Error while saving.",
+        "page.settings.upload_logo":     "Upload logo",
+
+        // Audit logs
+        "page.logs.title":    "Activity Logs",
+        "page.logs.desc":     "All logins and actions in the system.",
+        "table.logs.user":    "User",
+        "table.logs.action":  "Action",
+        "table.logs.resource":"Resource",
+        "table.logs.details": "Details",
+        "table.logs.time":    "Time",
+        "table.logs.empty":   "No logs found.",
+
+        // Email reminders
+        "reminder.title":     "Send Payment Reminder",
+        "reminder.desc":      "Send a reminder email to families with overdue payments.",
+        "reminder.send":      "Send reminder",
+        "reminder.sending":   "Sending...",
+        "reminder.sent":      "Reminder sent!",
+        "reminder.error":     "Could not send reminder.",
+        "reminder.no_email":  "Family has no registered email address.",
+    }
+}
+
+const LanguageContext = createContext<LanguageContextType>({
+    language: 'sv',
+    setLanguage: () => { },
+    t: (key: string) => key
+})
+
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+    const [language, setLanguage] = useState<Language>('sv')
+    const [mounted, setMounted] = useState(false)
+
+    useEffect(() => {
+        setMounted(true)
+        try {
+            const saved = localStorage.getItem('app-language') as Language
+            if (saved === 'sv' || saved === 'en') {
+                setLanguage(saved)
+            }
+        } catch { /* ignore */ }
+    }, [])
+
+    const handleSetLanguage = (lang: Language) => {
+        setLanguage(lang)
+        try { localStorage.setItem('app-language', lang) } catch { /* ignore */ }
+    }
+
+    const t = (key: string): string => {
+        const dict = translations[language] as Record<string, string>
+        return dict[key] ?? key
+    }
+
+    if (!mounted) {
+        return <div style={{ visibility: 'hidden' }}>{children}</div>
+    }
+
+    return (
+        <LanguageContext.Provider value={{ language, setLanguage: handleSetLanguage, t }}>
+            {children}
+        </LanguageContext.Provider>
+    )
+}
+
+export const useLanguage = () => useContext(LanguageContext)
