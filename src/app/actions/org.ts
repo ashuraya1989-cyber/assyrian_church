@@ -140,12 +140,54 @@ export async function deleteOrganisation(orgId: string) {
     try {
         await verifySuperAdmin()
         const adminClient = getServiceRoleClient()
+
+        // Delete related records first (in correct order)
+        await adminClient.from('audit_logs').delete().eq('organisation_id', orgId)
+        await adminClient.from('betalningar').delete().eq('organisation_id', orgId)
+        await adminClient.from('barn').delete().eq('organisation_id', orgId)
+        await adminClient.from('familjer').delete().eq('organisation_id', orgId)
+        await adminClient.from('intakter').delete().eq('organisation_id', orgId)
+        await adminClient.from('utgifter').delete().eq('organisation_id', orgId)
+        await adminClient.from('app_settings').delete().eq('organisation_id', orgId)
+        await adminClient.from('organisation_members').delete().eq('organisation_id', orgId)
+
         const { error } = await adminClient.from('organisations').delete().eq('id', orgId)
         if (error) throw error
         await logAuditAction('delete', 'organisation', orgId, {})
         return { success: true }
     } catch (error: any) {
         return { success: false, error: error.message }
+    }
+}
+
+// ── Orgs with member count (service role for accurate count) ──
+
+export async function getOrgsWithMemberCount() {
+    try {
+        await verifySuperAdmin()
+        const adminClient = getServiceRoleClient()
+        const { data: orgs } = await adminClient
+            .from('organisations')
+            .select('*')
+            .order('created_at', { ascending: false })
+
+        if (!orgs) return []
+
+        const orgsWithCount = await Promise.all(
+            orgs.map(async (org) => {
+                const { count } = await adminClient
+                    .from('organisation_members')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('organisation_id', org.id)
+                return {
+                    ...org,
+                    organisation_members: [{ count: count ?? 0 }],
+                }
+            })
+        )
+        return orgsWithCount
+    } catch {
+        return []
     }
 }
 

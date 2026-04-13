@@ -6,7 +6,7 @@ import {
     Building2, Plus, Users, Loader2, CheckCircle, XCircle,
     Eye, ArrowRight, ScrollText, BarChart3, Trash2,
 } from "lucide-react"
-import { createOrganisation, setActiveOrganisation, deleteOrganisation } from "@/app/actions/org"
+import { createOrganisation, setActiveOrganisation, deleteOrganisation, getOrgsWithMemberCount } from "@/app/actions/org"
 
 interface Organisation {
     id: string
@@ -43,9 +43,12 @@ export default function SuperAdminPage() {
         try {
             const { data } = await supabase
                 .from('organisations')
-                .select('*, organisation_members(count)')
+                .select('*')
                 .order('created_at', { ascending: false })
-            setOrgs(data ?? [])
+
+            // Fetch member counts via server action
+            const orgsWithCount = await getOrgsWithMemberCount()
+            setOrgs(orgsWithCount ?? data ?? [])
 
             // Global stats
             const { count: usersCount } = await supabase.from('user_profiles').select('id', { count: 'exact', head: true })
