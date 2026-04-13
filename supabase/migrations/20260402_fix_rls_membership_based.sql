@@ -1,26 +1,33 @@
 -- =============================================================
 -- FIX: RLS policies based on org MEMBERSHIP instead of session variable
--- Session variables don't work with Supabase REST API (stateless).
--- These policies check if the user is a member of the org directly.
+-- Drop ALL existing org policies first, then recreate.
 -- =============================================================
 
--- Drop old org-based policies
-DO $$
-DECLARE pol RECORD;
-BEGIN
-    FOR pol IN
-        SELECT policyname, tablename
-        FROM pg_policies
-        WHERE schemaname = 'public'
-        AND tablename IN ('familjer','barn','betalningar','intakter','utgifter')
-        AND policyname IN (
-            'Org members can read','Org members can insert',
-            'Org members can update','Org members can delete'
-        )
-    LOOP
-        EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol.policyname, pol.tablename);
-    END LOOP;
-END $$;
+-- ── Drop ALL existing policies on these tables ──
+DROP POLICY IF EXISTS "Org members can read" ON public.familjer;
+DROP POLICY IF EXISTS "Org members can insert" ON public.familjer;
+DROP POLICY IF EXISTS "Org members can update" ON public.familjer;
+DROP POLICY IF EXISTS "Org members can delete" ON public.familjer;
+
+DROP POLICY IF EXISTS "Org members can read" ON public.barn;
+DROP POLICY IF EXISTS "Org members can insert" ON public.barn;
+DROP POLICY IF EXISTS "Org members can update" ON public.barn;
+DROP POLICY IF EXISTS "Org members can delete" ON public.barn;
+
+DROP POLICY IF EXISTS "Org members can read" ON public.betalningar;
+DROP POLICY IF EXISTS "Org members can insert" ON public.betalningar;
+DROP POLICY IF EXISTS "Org members can update" ON public.betalningar;
+DROP POLICY IF EXISTS "Org members can delete" ON public.betalningar;
+
+DROP POLICY IF EXISTS "Org members can read" ON public.intakter;
+DROP POLICY IF EXISTS "Org members can insert" ON public.intakter;
+DROP POLICY IF EXISTS "Org members can update" ON public.intakter;
+DROP POLICY IF EXISTS "Org members can delete" ON public.intakter;
+
+DROP POLICY IF EXISTS "Org members can read" ON public.utgifter;
+DROP POLICY IF EXISTS "Org members can insert" ON public.utgifter;
+DROP POLICY IF EXISTS "Org members can update" ON public.utgifter;
+DROP POLICY IF EXISTS "Org members can delete" ON public.utgifter;
 
 -- ── familjer ──
 CREATE POLICY "Org members can read" ON public.familjer FOR SELECT TO authenticated
