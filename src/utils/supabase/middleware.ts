@@ -37,20 +37,23 @@ export async function updateSession(request: NextRequest) {
 
         const pathname = request.nextUrl.pathname
 
+        // Unauthenticated → login
         if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/auth')) {
-            const url = request.nextUrl.clone()
-            url.pathname = '/login'
-            return NextResponse.redirect(url)
+            const redirectUrl = request.nextUrl.clone()
+            redirectUrl.pathname = '/login'
+            return NextResponse.redirect(redirectUrl)
         }
 
-        // --- Set active org context from cookie ---
+        // Set active org context from cookie for Supabase RLS
         const activeOrgId = request.cookies.get('active_org_id')?.value
         if (activeOrgId && user) {
-            await supabase.rpc('set_current_org', { org_id: activeOrgId })
+            try {
+                await supabase.rpc('set_current_org', { org_id: activeOrgId })
+            } catch { /* ignore if RPC not yet created */ }
         }
 
-        // --- RBAC / Route Protection Logic ---
-        if (user && !pathname.startsWith('/login') && !pathname.startsWith('/auth')) {
+        // RBAC for authenticated users
+        if (user && !pathname.startsWith('/login') && !pathname.startsWith('/auth') && !pathname.startsWith('/api')) {
             const { data: profile } = await supabase
                 .from('user_profiles')
                 .select('role, permissions')
@@ -60,16 +63,18 @@ export async function updateSession(request: NextRequest) {
             if (profile) {
                 const { role, permissions } = profile
 
-                // Super admin route protection
+                // /super-admin — only superadmins
                 if (pathname.startsWith('/super-admin')) {
                     if (role !== 'superadmin') {
-                        const url = request.nextUrl.clone()
-                        url.pathname = '/'
-                        return NextResponse.redirect(url)
+                        const redirectUrl = request.nextUrl.clone()
+                        redirectUrl.pathname = '/'
+                        return NextResponse.redirect(redirectUrl)
                     }
+                    // Superadmin on /super-admin — always allow, no org needed
+                    return supabaseResponse
                 }
 
-                // Map paths to permission keys
+                // Route permission map
                 const routePermissionMap: Record<string, string> = {
                     '/register': 'register',
                     '/betalningar': 'payments',
@@ -80,30 +85,30 @@ export async function updateSession(request: NextRequest) {
                     '/anvandare': 'users'
                 }
 
-                // Superadmins and admins can access anything
+                // Regular users need explicit permissions
                 if (role !== 'superadmin' && role !== 'admin') {
                     for (const [route, perm] of Object.entries(routePermissionMap)) {
                         if (pathname.startsWith(route)) {
                             if (!permissions || !Array.isArray(permissions) || !permissions.includes(perm)) {
-                                const url = request.nextUrl.clone()
-                                url.pathname = '/'
-                                return NextResponse.redirect(url)
+                                const redirectUrl = request.nextUrl.clone()
+                                redirectUrl.pathname = '/'
+                                return NextResponse.redirect(redirectUrl)
                             }
                         }
                     }
 
                     if ((pathname.startsWith('/installningar') || pathname.startsWith('/anvandare')) && role === 'user') {
-                        const url = request.nextUrl.clone()
-                        url.pathname = '/'
-                        return NextResponse.redirect(url)
+                        const redirectUrl = request.nextUrl.clone()
+                        redirectUrl.pathname = '/'
+                        return NextResponse.redirect(redirectUrl)
                     }
-                }
 
-                // Redirect to login if user has no active org and is not on login page
-                if (!activeOrgId && !pathname.startsWith('/login') && !pathname.startsWith('/super-admin') && role !== 'superadmin') {
-                    const url = request.nextUrl.clone()
-                    url.pathname = '/login'
-                    return NextResponse.redirect(url)
+                    // Non-superadmin without active org → send to login for org selection
+                    if (!activeOrgId) {
+                        const redirectUrl = request.nextUrl.clone()
+                        redirectUrl.pathname = '/login'
+                        return NextResponse.redirect(redirectUrl)
+                    }
                 }
             }
         }

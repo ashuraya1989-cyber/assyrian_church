@@ -21,6 +21,12 @@ const OrgContext = createContext<OrgContextValue>({
     refreshOrg: async () => {},
 })
 
+function getCookie(name: string): string | null {
+    if (typeof document === 'undefined') return null
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
+    return match ? decodeURIComponent(match[2]) : null
+}
+
 export function OrgProvider({ children }: { children: ReactNode }) {
     const supabase = useMemo(() => {
         try { return createClient() } catch { return null }
@@ -35,22 +41,31 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     const fetchOrg = async () => {
         if (!supabase) { setLoading(false); return }
         try {
-            // Read active_org_id from cookie via a fetch to avoid direct cookie access
-            const res = await fetch('/api/active-org')
-            if (res.ok) {
-                const { orgId } = await res.json()
-                if (orgId) {
-                    setActiveOrgId(orgId)
-                    const { data } = await supabase
-                        .from('organisations')
-                        .select('name, logo_url, primary_color')
-                        .eq('id', orgId)
-                        .single()
-                    if (data) {
-                        setActiveOrgName(data.name)
-                        setActiveOrgLogo(data.logo_url)
-                        setActiveOrgColor(data.primary_color || '#C9A84C')
+            // Try reading from cookie first (httpOnly cookies aren't readable, so use API)
+            let orgId: string | null = getCookie('active_org_id')
+
+            // If cookie not readable (httpOnly), try API route
+            if (!orgId) {
+                try {
+                    const res = await fetch('/api/active-org')
+                    if (res.ok) {
+                        const data = await res.json()
+                        orgId = data.orgId
                     }
+                } catch { /* ignore */ }
+            }
+
+            if (orgId) {
+                setActiveOrgId(orgId)
+                const { data } = await supabase
+                    .from('organisations')
+                    .select('name, logo_url, primary_color')
+                    .eq('id', orgId)
+                    .single()
+                if (data) {
+                    setActiveOrgName(data.name)
+                    setActiveOrgLogo(data.logo_url)
+                    setActiveOrgColor(data.primary_color || '#C9A84C')
                 }
             }
         } catch { /* ignore */ }

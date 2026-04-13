@@ -34,13 +34,27 @@ async function getAuthClient() {
     })
 }
 
+async function verifySuperAdmin() {
+    const supabase = await getAuthClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error("Ej inloggad")
+    const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+    if (profile?.role !== 'superadmin') throw new Error("Endast superadmins")
+    return { user, supabase }
+}
+
+// ── Active org cookie ──
+
 export async function setActiveOrganisation(orgId: string) {
     const cookieStore = await cookies()
     const supabase = await getAuthClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error("Ej inloggad")
 
-    // Superadmin can access any org
     const { data: profile } = await supabase
         .from('user_profiles')
         .select('role')
@@ -48,14 +62,12 @@ export async function setActiveOrganisation(orgId: string) {
         .single()
 
     if (profile?.role !== 'superadmin') {
-        // Verify membership
         const { data } = await supabase
             .from('organisation_members')
-            .select('id, role')
+            .select('id')
             .eq('user_id', user.id)
             .eq('organisation_id', orgId)
             .single()
-
         if (!data) throw new Error("Inte behörig till den organisationen")
     }
 
@@ -65,72 +77,19 @@ export async function setActiveOrganisation(orgId: string) {
     return { success: true }
 }
 
-export async function getMyOrganisations() {
-    const supabase = await getAuthClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return []
-
-    const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-    // Superadmin sees all orgs
-    if (profile?.role === 'superadmin') {
-        const { data: orgs } = await supabase
-            .from('organisations')
-            .select('*')
-            .eq('is_active', true)
-            .order('name')
-        return (orgs ?? []).map(org => ({
-            ...org,
-            member_role: 'superadmin' as const,
-        }))
-    }
-
-    // Regular users see their memberships
-    const { data: memberships } = await supabase
-        .from('organisation_members')
-        .select('organisation_id, role, permissions, organisations(id, name, slug, logo_url, primary_color, is_active)')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-
-    if (!memberships) return []
-
-    return memberships
-        .filter((m: any) => m.organisations?.is_active)
-        .map((m: any) => ({
-            id: m.organisations.id,
-            name: m.organisations.name,
-            slug: m.organisations.slug,
-            logo_url: m.organisations.logo_url,
-            primary_color: m.organisations.primary_color,
-            member_role: m.role,
-            member_permissions: m.permissions,
-        }))
+export async function getActiveOrgId(): Promise<string | null> {
+    const cookieStore = await cookies()
+    return cookieStore.get('active_org_id')?.value ?? null
 }
+
+// ── Org CRUD ──
 
 export async function createOrganisation(formData: FormData) {
     try {
-        const supabase = await getAuthClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) throw new Error("Ej inloggad")
-
-        const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single()
-
-        if (profile?.role !== 'superadmin') {
-            throw new Error("Endast superadmins kan skapa organisationer")
-        }
-
+        const { user } = await verifySuperAdmin()
         const name = formData.get('name') as string
         const slug = formData.get('slug') as string
         const primaryColor = (formData.get('primary_color') as string) || '#C9A84C'
-
         if (!name || !slug) throw new Error("Namn och slug krävs")
 
         const adminClient = getServiceRoleClient()
@@ -144,78 +103,32 @@ export async function createOrganisation(formData: FormData) {
             })
             .select()
             .single()
-
         if (error) throw error
 
-        // Create default app_settings for the new org
-        await adminClient
-            .from('app_settings')
-            .insert({
-                organisation_id: org.id,
-                admin_title: name,
-                login_title: 'Välkommen',
-                login_subtitle: `Logga in på ${name}`,
-            })
+        // Create default app_settings row for this org
+        await adminClient.from('app_settings').insert({
+            organisation_id: org.id,
+            admin_title: name,
+            login_title: 'Välkommen',
+            login_subtitle: `Logga in på ${name}`,
+        })
 
         await logAuditAction('create', 'organisation', org.id, { name, slug })
-
         return { success: true, organisation: org }
     } catch (error: any) {
         return { success: false, error: error.message }
     }
 }
 
-export async function getActiveOrgId(): Promise<string | null> {
-    const cookieStore = await cookies()
-    return cookieStore.get('active_org_id')?.value ?? null
-}
-
-export async function getAllOrganisations() {
-    const supabase = await getAuthClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return []
-
-    const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-    if (profile?.role !== 'superadmin') return []
-
-    const adminClient = getServiceRoleClient()
-    const { data: orgs } = await adminClient
-        .from('organisations')
-        .select('*, organisation_members(count)')
-        .order('created_at', { ascending: false })
-
-    return orgs ?? []
-}
-
-export async function updateOrganisation(orgId: string, data: { name?: string; slug?: string; is_active?: boolean; primary_color?: string; logo_url?: string }) {
+export async function updateOrganisation(orgId: string, data: Record<string, any>) {
     try {
-        const supabase = await getAuthClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) throw new Error("Ej inloggad")
-
-        const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single()
-
-        if (profile?.role !== 'superadmin') {
-            throw new Error("Endast superadmins kan uppdatera organisationer")
-        }
-
+        await verifySuperAdmin()
         const adminClient = getServiceRoleClient()
         const { error } = await adminClient
             .from('organisations')
             .update({ ...data, updated_at: new Date().toISOString() })
             .eq('id', orgId)
-
         if (error) throw error
-
         await logAuditAction('update', 'organisation', orgId, data)
         return { success: true }
     } catch (error: any) {
@@ -223,8 +136,34 @@ export async function updateOrganisation(orgId: string, data: { name?: string; s
     }
 }
 
+export async function deleteOrganisation(orgId: string) {
+    try {
+        await verifySuperAdmin()
+        const adminClient = getServiceRoleClient()
+        const { error } = await adminClient.from('organisations').delete().eq('id', orgId)
+        if (error) throw error
+        await logAuditAction('delete', 'organisation', orgId, {})
+        return { success: true }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+}
+
+// ── Org members ──
+
+export async function getOrgMembers(orgId: string) {
+    const adminClient = getServiceRoleClient()
+    const { data } = await adminClient
+        .from('organisation_members')
+        .select('*, user_profiles(email, role)')
+        .eq('organisation_id', orgId)
+        .order('created_at')
+    return data ?? []
+}
+
 export async function addOrgMember(orgId: string, userId: string, role: string, permissions: string[]) {
     try {
+        await verifySuperAdmin()
         const adminClient = getServiceRoleClient()
         const { error } = await adminClient
             .from('organisation_members')
@@ -235,9 +174,7 @@ export async function addOrgMember(orgId: string, userId: string, role: string, 
                 permissions,
                 is_active: true,
             }, { onConflict: 'organisation_id,user_id' })
-
         if (error) throw error
-
         await logAuditAction('create', 'organisation_member', orgId, { userId, role })
         return { success: true }
     } catch (error: any) {
@@ -245,12 +182,51 @@ export async function addOrgMember(orgId: string, userId: string, role: string, 
     }
 }
 
-export async function getOrgMembers(orgId: string) {
-    const adminClient = getServiceRoleClient()
-    const { data } = await adminClient
-        .from('organisation_members')
-        .select('*, user_profiles(email, role)')
-        .eq('organisation_id', orgId)
-        .order('created_at')
-    return data ?? []
+export async function removeOrgMember(orgId: string, userId: string) {
+    try {
+        await verifySuperAdmin()
+        const adminClient = getServiceRoleClient()
+        const { error } = await adminClient
+            .from('organisation_members')
+            .delete()
+            .eq('organisation_id', orgId)
+            .eq('user_id', userId)
+        if (error) throw error
+        await logAuditAction('delete', 'organisation_member', orgId, { userId })
+        return { success: true }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+}
+
+export async function updateOrgMemberRole(orgId: string, userId: string, role: string, permissions: string[]) {
+    try {
+        await verifySuperAdmin()
+        const adminClient = getServiceRoleClient()
+        const { error } = await adminClient
+            .from('organisation_members')
+            .update({ role, permissions })
+            .eq('organisation_id', orgId)
+            .eq('user_id', userId)
+        if (error) throw error
+        return { success: true }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+}
+
+// ── Get all users (for adding to orgs) ──
+
+export async function getAllUsers() {
+    try {
+        await verifySuperAdmin()
+        const adminClient = getServiceRoleClient()
+        const { data } = await adminClient
+            .from('user_profiles')
+            .select('id, email, role, permissions')
+            .order('email')
+        return data ?? []
+    } catch {
+        return []
+    }
 }
