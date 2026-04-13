@@ -1,33 +1,22 @@
 -- =============================================================
 -- FIX: RLS policies based on org MEMBERSHIP instead of session variable
--- Drop ALL existing org policies first, then recreate.
+-- AGGRESSIVELY drops ALL existing policies on data tables first.
 -- =============================================================
 
--- ── Drop ALL existing policies on these tables ──
-DROP POLICY IF EXISTS "Org members can read" ON public.familjer;
-DROP POLICY IF EXISTS "Org members can insert" ON public.familjer;
-DROP POLICY IF EXISTS "Org members can update" ON public.familjer;
-DROP POLICY IF EXISTS "Org members can delete" ON public.familjer;
-
-DROP POLICY IF EXISTS "Org members can read" ON public.barn;
-DROP POLICY IF EXISTS "Org members can insert" ON public.barn;
-DROP POLICY IF EXISTS "Org members can update" ON public.barn;
-DROP POLICY IF EXISTS "Org members can delete" ON public.barn;
-
-DROP POLICY IF EXISTS "Org members can read" ON public.betalningar;
-DROP POLICY IF EXISTS "Org members can insert" ON public.betalningar;
-DROP POLICY IF EXISTS "Org members can update" ON public.betalningar;
-DROP POLICY IF EXISTS "Org members can delete" ON public.betalningar;
-
-DROP POLICY IF EXISTS "Org members can read" ON public.intakter;
-DROP POLICY IF EXISTS "Org members can insert" ON public.intakter;
-DROP POLICY IF EXISTS "Org members can update" ON public.intakter;
-DROP POLICY IF EXISTS "Org members can delete" ON public.intakter;
-
-DROP POLICY IF EXISTS "Org members can read" ON public.utgifter;
-DROP POLICY IF EXISTS "Org members can insert" ON public.utgifter;
-DROP POLICY IF EXISTS "Org members can update" ON public.utgifter;
-DROP POLICY IF EXISTS "Org members can delete" ON public.utgifter;
+-- Drop ALL policies on these 5 tables (regardless of name)
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN
+        SELECT policyname, tablename
+        FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename IN ('familjer','barn','betalningar','intakter','utgifter')
+    LOOP
+        EXECUTE format('DROP POLICY %I ON public.%I', r.policyname, r.tablename);
+    END LOOP;
+END $$;
 
 -- ── familjer ──
 CREATE POLICY "Org members can read" ON public.familjer FOR SELECT TO authenticated
